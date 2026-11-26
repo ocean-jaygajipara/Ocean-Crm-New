@@ -1,0 +1,167 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ocean-crm-api01",
+    "name": "Ocean CRM API",
+    "description": "Ocean CRM mobile/API collection.\n\nBase URL (local): http://localhost/Ocean%20Crm%20New/api/\n\nAuth: Authorization: Bearer {{token}}\nLogin success response: status, message, token, data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost/Ocean%20Crm%20New/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "admin_username",
+      "value": "ADMIN"
+    },
+    {
+      "key": "admin_password",
+      "value": "your_password"
+    },
+    {
+      "key": "sales_username",
+      "value": "SALES1"
+    },
+    {
+      "key": "sales_password",
+      "value": "your_password"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login status true', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(true);",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\",\n  \"role\": \"admin\",\n  \"device_info\": \"Postman\"\n}"
+            },
+            "url": "{{base_url}}/login",
+            "description": "POST login as admin.\n\nRequired: username, password, role=admin\nOptional: device_info\n\nOn success: saves token to collection variable {{token}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Sales Person)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login status true', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(true);",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{sales_username}}\",\n  \"password\": \"{{sales_password}}\",\n  \"role\": \"sales_person\",\n  \"device_info\": \"Postman\"\n}"
+            },
+            "url": "{{base_url}}/login",
+            "description": "POST login as sales_person.\n\nAliases for role: sales, sales-person, salesperson"
+          },
+          "response": []
+        },
+        {
+          "name": "Me (Current User)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{base_url}}/me",
+            "description": "Get current user profile.\nAuth required (Bearer token)."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{base_url}}/logout",
+            "description": "Logout / revoke token.\nAuth: Bearer header (or body token)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

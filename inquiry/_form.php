@@ -79,8 +79,9 @@ if (!isset($canEditCreatedBy)) {
                 <div class="col-md-4">
                     <div class="form-group">
                         <label for="inquiry_date">Inquiry Date <span class="req">*</span></label>
-                        <input type="date" id="inquiry_date" name="inquiry_date" class="form-control" required
-                               value="<?php echo htmlspecialchars((string) ($row['inquiry_date'] ?? date('Y-m-d'))); ?>">
+                        <input type="text" id="inquiry_date" name="inquiry_date" class="form-control js-date" required
+                               value="<?php echo htmlspecialchars(dateInputValue($row['inquiry_date'] ?? date('Y-m-d'))); ?>"
+                               placeholder="DD-MM-YYYY" autocomplete="off">
                     </div>
                 </div>
 
@@ -103,8 +104,41 @@ if (!isset($canEditCreatedBy)) {
                 <div class="col-md-4">
                     <div class="form-group">
                         <label for="phone">Phone</label>
-                        <input type="text" id="phone" name="phone" class="form-control" maxlength="30"
-                               value="<?php echo htmlspecialchars((string) ($row['phone'] ?? '')); ?>">
+                        <?php
+                        if (!function_exists('getInquiryPhoneMaxLength')) {
+                            require_once __DIR__ . '/../includes/settings.php';
+                        }
+                        $phoneMaxLen = getInquiryPhoneMaxLength();
+                        $phoneVal = (string) ($row['phone'] ?? '');
+                        $whatsappVal = (string) ($row['whatsapp'] ?? '');
+                        $sameAsPhone = ($phoneVal !== '' && $whatsappVal !== '' && $phoneVal === $whatsappVal);
+                        ?>
+                        <input type="text" id="phone" name="phone" class="form-control js-inq-phone"
+                               maxlength="<?php echo (int) $phoneMaxLen; ?>"
+                               inputmode="tel"
+                               autocomplete="tel"
+                               placeholder="e.g. +91 98765-43210"
+                               value="<?php echo htmlspecialchars($phoneVal); ?>">
+                        <small class="form-help">Maximum <?php echo (int) $phoneMaxLen; ?> characters. Digits and + - ( ) . / space only.</small>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group inq-wa-group">
+                        <div class="inq-wa-label-row">
+                            <label for="whatsapp">WhatsApp</label>
+                            <label class="inq-same-phone-check" for="same_as_phone">
+                                <input type="checkbox" id="same_as_phone" <?php echo $sameAsPhone ? 'checked' : ''; ?>>
+                                <span>Same as Phone</span>
+                            </label>
+                        </div>
+                        <input type="text" id="whatsapp" name="whatsapp" class="form-control js-inq-phone"
+                               maxlength="<?php echo (int) $phoneMaxLen; ?>"
+                               inputmode="tel"
+                               autocomplete="tel"
+                               placeholder="WhatsApp number"
+                               value="<?php echo htmlspecialchars($whatsappVal); ?>"
+                               <?php echo $sameAsPhone ? 'readonly' : ''; ?>>
                     </div>
                 </div>
 
@@ -208,9 +242,10 @@ if (!isset($canEditCreatedBy)) {
 
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label for="next_follow_up_date">Next Follow Up Date</label>
-                        <input type="date" id="next_follow_up_date" name="next_follow_up_date" class="form-control"
-                               value="<?php echo htmlspecialchars((string) ($row['next_follow_up_date'] ?? '')); ?>">
+                        <label for="follow_up_date">Follow Up Date</label>
+                        <input type="text" id="follow_up_date" name="follow_up_date" class="form-control js-date"
+                               value="<?php echo htmlspecialchars(dateInputValue($row['follow_up_date'] ?? '')); ?>"
+                               placeholder="DD-MM-YYYY" autocomplete="off">
                     </div>
                 </div>
 
@@ -251,9 +286,8 @@ if (!isset($canEditCreatedBy)) {
                 <div class="col-md-12">
                     <div class="form-group">
                         <label for="address">Address</label>
-                        <input type="text" id="address" name="address" class="form-control" maxlength="255"
-                               value="<?php echo htmlspecialchars((string) ($row['address'] ?? '')); ?>"
-                               placeholder="Street / landmark / full address">
+                        <textarea id="address" name="address" class="form-control autosize" rows="1" maxlength="255"
+                                  placeholder="Street / landmark / full address"><?php echo htmlspecialchars((string) ($row['address'] ?? '')); ?></textarea>
                     </div>
                 </div>
 

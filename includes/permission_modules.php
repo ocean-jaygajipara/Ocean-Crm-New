@@ -12,6 +12,11 @@ function getPermissionModules()
             'label' => 'Inquiry',
             'icon'  => 'fa-clipboard-question',
         ],
+        'customers' => [
+            'key'   => 'customers',
+            'label' => 'Customers',
+            'icon'  => 'fa-users',
+        ],
         'masters' => [
             'key'   => 'masters',
             'label' => 'Masters',

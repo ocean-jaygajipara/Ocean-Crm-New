@@ -72,7 +72,23 @@ $inqSources = getInquirySources();
         <a href="<?php echo app_url('dashboard.php'); ?>" class="back-link">
             <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
         </a>
-        <div class="toolbar-actions">
+        <div class="toolbar-actions crm-list-tools">
+            <button type="button" class="crm-tool-btn" id="inquiryFilterToggle" title="Filters" aria-expanded="false" aria-controls="inquiryFilterCard">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+            <div class="crm-tool-dropdown" id="inquirySettingsMenu">
+                <button type="button" class="crm-tool-btn" id="inquirySettingsBtn" title="Settings" aria-expanded="false" aria-haspopup="true">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <div class="crm-tool-menu" role="menu" hidden>
+                    <button type="button" class="crm-tool-menu-item" id="inquiryExportExcel" role="menuitem">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
+                    </button>
+                    <button type="button" class="crm-tool-menu-item" id="inquiryPrintBtn" role="menuitem">
+                        <i class="fa-solid fa-print"></i> Print
+                    </button>
+                </div>
+            </div>
             <?php if ($canAdd): ?>
             <a href="<?php echo app_url('inquiry/add.php'); ?>" class="btn-primary">
                 <i class="fa-solid fa-plus"></i> Add Inquiry
@@ -83,7 +99,7 @@ $inqSources = getInquirySources();
 
     <div class="list-header">
         <div class="master-list-title">
-            <div class="master-list-icon" style="background:#2466FB;">
+            <div class="master-list-icon" style="background:#e08a0a;">
                 <i class="fa-solid fa-clipboard-question"></i>
             </div>
             <div>
@@ -93,7 +109,7 @@ $inqSources = getInquirySources();
         </div>
     </div>
 
-    <div class="data-card data-card-pad crm-filter-card">
+    <div class="data-card data-card-pad crm-filter-card" id="inquiryFilterCard" hidden>
         <form id="inquiryFilterForm" class="crm-filter-bar" autocomplete="off">
             <div class="crm-row">
                 <div class="col-md-3">

@@ -141,12 +141,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $upd->close();
 
-                    $role = 'admin';
                     $status = 1;
                     $ins = $conn->prepare(
-                        'INSERT INTO users (username, password, full_name, role, status) VALUES (?, ?, ?, ?, ?)'
+                        'INSERT INTO users (username, password, full_name, status) VALUES (?, ?, ?, ?)'
                     );
-                    $ins->bind_param('ssssi', $usernameKey, $password, $form['admin_name'], $role, $status);
+                    $ins->bind_param('sssi', $usernameKey, $password, $form['admin_name'], $status);
                     if (!$ins->execute()) {
                         throw new RuntimeException('Could not create admin account.');
                     }

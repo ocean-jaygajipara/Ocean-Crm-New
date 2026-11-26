@@ -57,7 +57,7 @@ if (isset($_GET['msg'])) {
                 </div>
                 <div>
                     <h1>Staff Users</h1>
-                    <p>Roles + team hierarchy (Reports To) · Admin always has full access</p>
+                    <p>Team hierarchy (Reports To) · Admin always has full access</p>
                 </div>
             </div>
         </div>
@@ -68,9 +68,9 @@ if (isset($_GET['msg'])) {
                     <tr>
                         <th>Sr</th>
                         <th>Name</th>
+                        <th>Emp. Code</th>
                         <th>Username</th>
-                        <th>Login As</th>
-                        <th>Custom Role</th>
+                        <th>Role</th>
                         <th>Reports To</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -86,17 +86,20 @@ if (isset($_GET['msg'])) {
                         <tr>
                             <td><?php echo $i + 1; ?></td>
                             <td><strong><?php echo htmlspecialchars($u['full_name']); ?></strong></td>
+                            <td><?php
+                                $empCode = trim((string) ($u['employee_code'] ?? ''));
+                                echo $empCode !== '' ? htmlspecialchars($empCode) : '<span class="text-muted">—</span>';
+                            ?></td>
                             <td><?php echo htmlspecialchars($u['username']); ?></td>
-                            <td><?php echo strtoupper(htmlspecialchars($u['role'])); ?></td>
-                            <td>
-                                <?php if (($u['role'] ?? '') === 'admin'): ?>
-                                    <span class="text-muted">Full access</span>
-                                <?php elseif (!empty($u['role_name'])): ?>
-                                    <?php echo htmlspecialchars($u['role_name']); ?>
-                                <?php else: ?>
-                                    <span class="badge badge-muted">Not assigned</span>
-                                <?php endif; ?>
-                            </td>
+                            <td><?php
+                                if ((int) ($u['role_id'] ?? 0) <= 0) {
+                                    echo 'Admin';
+                                } elseif (!empty($u['role_name'])) {
+                                    echo htmlspecialchars((string) $u['role_name']);
+                                } else {
+                                    echo '<span class="text-muted">—</span>';
+                                }
+                            ?></td>
                             <td>
                                 <?php
                                 $mgrName = trim((string) ($u['reports_to_name'] ?? ''));

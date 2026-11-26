@@ -103,7 +103,7 @@ try {
         $stats['follow_up'] = $runCount(
             $conn,
             'SELECT COUNT(*) AS c FROM inquiries
-             WHERE status = 1 AND next_follow_up_date IS NOT NULL AND next_follow_up_date <= ?' . $scopeSql,
+             WHERE status = 1 AND follow_up_date IS NOT NULL AND follow_up_date <= ?' . $scopeSql,
             's' . $scopeTypes,
             array_merge([$today], $scopeParams)
         );
@@ -293,7 +293,7 @@ $statusMap = $canInquiryView ? getInquiryStatusRows() : [];
     <section class="dash-section">
         <div class="list-header" style="margin-bottom:12px;">
             <div class="master-list-title">
-                <div class="master-list-icon" style="background:#2466FB;">
+                <div class="master-list-icon" style="background:#e08a0a;">
                     <i class="fa-solid fa-chart-pie"></i>
                 </div>
                 <div>
@@ -318,7 +318,7 @@ $statusMap = $canInquiryView ? getInquiryStatusRows() : [];
                 <span class="dash-status-dot"></span>
                 <div class="dash-status-body">
                     <strong><?php echo htmlspecialchars((string) $srow['name']); ?></strong>
-                    <span><?php echo $cnt; ?> inquir<?php echo $cnt === 1 ? 'y' : 'ies'; ?> · open list</span>
+                    <span><?php echo $cnt; ?> inquir<?php echo $cnt === 1 ? 'y' : 'ies'; ?> · view list</span>
                 </div>
                 <em class="dash-status-count"><?php echo $cnt; ?></em>
             </a>
@@ -331,12 +331,12 @@ $statusMap = $canInquiryView ? getInquiryStatusRows() : [];
     <section class="dash-section">
         <div class="list-header" style="margin-bottom:12px;">
             <div class="master-list-title">
-                <div class="master-list-icon" style="background:#1A4FD6;">
+                <div class="master-list-icon" style="background:#c77708;">
                     <i class="fa-solid fa-bolt"></i>
                 </div>
                 <div>
                     <h1 style="font-size:18px;margin:0;">Shortcuts</h1>
-                    <p style="margin:2px 0 0;">Direct open — badhu ek click ma</p>
+                    <p style="margin:2px 0 0;">Open any module in one click</p>
                 </div>
             </div>
         </div>
@@ -430,7 +430,7 @@ $statusMap = $canInquiryView ? getInquiryStatusRows() : [];
     <section class="dash-section">
         <div class="list-header" style="margin-bottom:12px;">
             <div class="master-list-title">
-                <div class="master-list-icon" style="background:#0ea5e9;">
+                <div class="master-list-icon" style="background:#e08a0a;">
                     <i class="fa-solid fa-clock-rotate-left"></i>
                 </div>
                 <div>

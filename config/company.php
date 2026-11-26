@@ -8,7 +8,7 @@ if (!defined('COMPANY_CODE')) {
     define('COMPANY_CODE', 'OCEAN_CRM');
     define('COMPANY_DEFAULT_NAME', 'Ocean CRM');
     define('COMPANY_INDUSTRY', 'CRM');
-    define('COMPANY_BRAND_COLOR', '#2466FB');
+    define('COMPANY_BRAND_COLOR', '#e08a0a');
     define('COMPANY_ACCENT_COLOR', '#0F172A');
     define('COMPANY_TAGLINE', 'Ocean CRM');
 

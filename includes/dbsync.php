@@ -22,6 +22,9 @@ function getDbSchemaSql()
                 letterhead VARCHAR(255) DEFAULT NULL,
                 inquiry_no_prefix VARCHAR(40) NOT NULL DEFAULT 'INQ',
                 inquiry_no_mode VARCHAR(20) NOT NULL DEFAULT 'auto',
+                employee_code_prefix VARCHAR(40) NOT NULL DEFAULT 'EMP',
+                employee_code_mode VARCHAR(20) NOT NULL DEFAULT 'auto',
+                phone_max_length INT NOT NULL DEFAULT 15,
                 header_details TEXT DEFAULT NULL,
                 footer_details TEXT DEFAULT NULL,
                 email VARCHAR(150) DEFAULT NULL,
@@ -41,14 +44,14 @@ function getDbSchemaSql()
                 username VARCHAR(50) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
                 full_name VARCHAR(100) NOT NULL,
-                role ENUM('admin', 'hr', 'employee') NOT NULL DEFAULT 'admin',
+                employee_code VARCHAR(50) DEFAULT NULL,
                 department_id INT NULL,
-                custom_role_id INT NULL,
+                role_id INT NULL,
                 employee_id INT NULL,
                 reports_to INT NOT NULL DEFAULT 0,
                 status TINYINT(1) NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_users_custom_role (custom_role_id),
+                INDEX idx_users_role (role_id),
                 INDEX idx_users_employee (employee_id),
                 INDEX idx_users_reports_to (reports_to)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
@@ -251,6 +254,19 @@ function getDbSchemaSql()
                 INDEX idx_inquiry_sources_default (is_default)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        'customer_types' =>
+            "CREATE TABLE IF NOT EXISTS customer_types (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                code VARCHAR(40) DEFAULT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                status TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_customer_types_status (status),
+                INDEX idx_customer_types_sort (sort_order)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         'inquiries' =>
             "CREATE TABLE IF NOT EXISTS inquiries (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -260,6 +276,7 @@ function getDbSchemaSql()
                 company_name VARCHAR(150) DEFAULT NULL,
                 email VARCHAR(150) DEFAULT NULL,
                 phone VARCHAR(40) DEFAULT NULL,
+                whatsapp VARCHAR(40) DEFAULT NULL,
                 country_id INT NOT NULL DEFAULT 0,
                 state_id INT NOT NULL DEFAULT 0,
                 city_id INT NOT NULL DEFAULT 0,
@@ -269,9 +286,10 @@ function getDbSchemaSql()
                 inquiry_status_id INT NOT NULL DEFAULT 0,
                 follow_up_status_id INT NOT NULL DEFAULT 0,
                 inquiry_source_id INT NOT NULL DEFAULT 0,
-                next_follow_up_date DATE DEFAULT NULL,
+                follow_up_date DATE DEFAULT NULL,
                 created_by INT NOT NULL DEFAULT 0,
                 assign_to INT NOT NULL DEFAULT 0,
+                customer_id INT NOT NULL DEFAULT 0,
                 status TINYINT(1) NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -281,12 +299,43 @@ function getDbSchemaSql()
                 INDEX idx_inquiries_fu_status (follow_up_status_id),
                 INDEX idx_inquiries_source (inquiry_source_id),
                 INDEX idx_inquiries_date (inquiry_date),
-                INDEX idx_inquiries_next_fu (next_follow_up_date),
+                INDEX idx_inquiries_fu_date (follow_up_date),
                 INDEX idx_inquiries_created_by (created_by),
                 INDEX idx_inquiries_assign_to (assign_to),
+                INDEX idx_inquiries_customer (customer_id),
                 INDEX idx_inquiries_country (country_id),
                 INDEX idx_inquiries_state (state_id),
                 INDEX idx_inquiries_city (city_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        'customers' =>
+            "CREATE TABLE IF NOT EXISTS customers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                customer_no VARCHAR(40) NOT NULL,
+                customer_type_id INT NOT NULL DEFAULT 0,
+                customer_name VARCHAR(150) NOT NULL,
+                company_name VARCHAR(150) DEFAULT NULL,
+                contact_person VARCHAR(150) DEFAULT NULL,
+                email VARCHAR(150) DEFAULT NULL,
+                phone VARCHAR(40) DEFAULT NULL,
+                whatsapp VARCHAR(40) DEFAULT NULL,
+                country_id INT NOT NULL DEFAULT 0,
+                state_id INT NOT NULL DEFAULT 0,
+                city_id INT NOT NULL DEFAULT 0,
+                area_id INT NOT NULL DEFAULT 0,
+                address VARCHAR(255) DEFAULT NULL,
+                remarks TEXT DEFAULT NULL,
+                inquiry_id INT NOT NULL DEFAULT 0,
+                created_by INT NOT NULL DEFAULT 0,
+                status TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_customers_no (customer_no),
+                INDEX idx_customers_status (status),
+                INDEX idx_customers_type (customer_type_id),
+                INDEX idx_customers_inquiry (inquiry_id),
+                INDEX idx_customers_phone (phone),
+                INDEX idx_customers_name (customer_name)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         'inquiry_products' =>
@@ -300,6 +349,39 @@ function getDbSchemaSql()
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_inquiry_products_inq (inquiry_id),
                 INDEX idx_inquiry_products_product (product_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        'notifications' =>
+            "CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                type VARCHAR(50) NOT NULL DEFAULT 'general',
+                title VARCHAR(200) NOT NULL,
+                message VARCHAR(500) DEFAULT NULL,
+                link VARCHAR(255) DEFAULT NULL,
+                ref_type VARCHAR(50) DEFAULT NULL,
+                ref_id INT NOT NULL DEFAULT 0,
+                is_read TINYINT(1) NOT NULL DEFAULT 0,
+                created_by INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_notifications_user_read (user_id, is_read),
+                INDEX idx_notifications_created (created_at),
+                INDEX idx_notifications_ref (ref_type, ref_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        'api_tokens' =>
+            "CREATE TABLE IF NOT EXISTS api_tokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                token VARCHAR(80) NOT NULL,
+                api_role VARCHAR(30) NOT NULL DEFAULT '',
+                device_info VARCHAR(255) DEFAULT NULL,
+                expires_at DATETIME DEFAULT NULL,
+                last_used_at DATETIME DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_api_tokens_token (token),
+                INDEX idx_api_tokens_user (user_id),
+                INDEX idx_api_tokens_expires (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
 }
@@ -435,6 +517,9 @@ function syncDatabase($conn = null, $withSeed = true)
         'letterhead'         => 'VARCHAR(255) DEFAULT NULL',
         'inquiry_no_prefix'  => "VARCHAR(40) NOT NULL DEFAULT 'INQ'",
         'inquiry_no_mode'    => "VARCHAR(20) NOT NULL DEFAULT 'auto'",
+        'employee_code_prefix' => "VARCHAR(40) NOT NULL DEFAULT 'EMP'",
+        'employee_code_mode'   => "VARCHAR(20) NOT NULL DEFAULT 'auto'",
+        'phone_max_length'   => 'INT NOT NULL DEFAULT 15',
         'header_details'     => 'TEXT DEFAULT NULL',
         'footer_details'     => 'TEXT DEFAULT NULL',
         'email'           => 'VARCHAR(150) DEFAULT NULL',
@@ -451,11 +536,37 @@ function syncDatabase($conn = null, $withSeed = true)
     }
 
     // users upgrades
-    dbAddColumnIfMissing($conn, 'users', 'custom_role_id', 'INT NULL DEFAULT NULL AFTER department_id', $log);
-    dbAddColumnIfMissing($conn, 'users', 'employee_id', 'INT NULL DEFAULT NULL AFTER custom_role_id', $log);
+    dbAddColumnIfMissing($conn, 'users', 'employee_code', 'VARCHAR(50) DEFAULT NULL AFTER full_name', $log);
+    dbAddColumnIfMissing($conn, 'users', 'role_id', 'INT NULL DEFAULT NULL AFTER department_id', $log);
+    // migrate legacy custom_role_id → role_id then drop
+    if (dbTableExists($conn, 'users')) {
+        $userCols = dbTableColumns($conn, 'users');
+        if (in_array('custom_role_id', $userCols, true) && in_array('role_id', $userCols, true)) {
+            $conn->query(
+                'UPDATE users
+                 SET role_id = custom_role_id
+                 WHERE (role_id IS NULL OR role_id = 0)
+                   AND custom_role_id IS NOT NULL AND custom_role_id <> 0'
+            );
+            dbDropColumnIfExists($conn, 'users', 'custom_role_id', $log);
+            $userCols = dbTableColumns($conn, 'users');
+        }
+        if (!in_array('employee_id', $userCols, true)) {
+            dbAddColumnIfMissing($conn, 'users', 'employee_id', 'INT NULL DEFAULT NULL AFTER role_id', $log);
+        }
+    }
+    dbAddColumnIfMissing($conn, 'users', 'employee_id', 'INT NULL DEFAULT NULL AFTER role_id', $log);
     dbAddColumnIfMissing($conn, 'users', 'reports_to', 'INT NOT NULL DEFAULT 0 AFTER employee_id', $log);
+    // Drop legacy users.role ENUM — access now via role_id only
+    if (dbTableExists($conn, 'users')) {
+        $userColsDrop = dbTableColumns($conn, 'users');
+        if (in_array('role', $userColsDrop, true)) {
+            dbDropColumnIfExists($conn, 'users', 'role', $log);
+        }
+    }
 
     // inquiries: address + requirement_details + status columns
+    dbAddColumnIfMissing($conn, 'inquiries', 'whatsapp', 'VARCHAR(40) DEFAULT NULL AFTER phone', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'address', 'VARCHAR(255) DEFAULT NULL AFTER area_id', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'requirement_details', 'TEXT DEFAULT NULL AFTER address', $log);
     // migrate legacy message → requirement_details then drop message
@@ -476,8 +587,26 @@ function syncDatabase($conn = null, $withSeed = true)
     dbAddColumnIfMissing($conn, 'inquiries', 'inquiry_status_id', 'INT NOT NULL DEFAULT 0 AFTER requirement_details', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'follow_up_status_id', 'INT NOT NULL DEFAULT 0 AFTER inquiry_status_id', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'inquiry_source_id', 'INT NOT NULL DEFAULT 0 AFTER follow_up_status_id', $log);
-    dbAddColumnIfMissing($conn, 'inquiries', 'next_follow_up_date', 'DATE DEFAULT NULL AFTER inquiry_source_id', $log);
+    // Rename legacy next_follow_up_date → follow_up_date
+    if (dbTableExists($conn, 'inquiries')) {
+        $inqCols = dbTableColumns($conn, 'inquiries');
+        if (in_array('next_follow_up_date', $inqCols, true) && !in_array('follow_up_date', $inqCols, true)) {
+            $okRename = $conn->query(
+                'ALTER TABLE `inquiries` CHANGE COLUMN `next_follow_up_date` `follow_up_date` DATE DEFAULT NULL'
+            );
+            $log[] = [
+                'type' => $okRename ? 'ok' : 'error',
+                'msg'  => ($okRename ? 'Renamed' : 'Failed rename') . ' inquiries.next_follow_up_date → follow_up_date'
+                    . ($okRename ? '' : (': ' . $conn->error)),
+            ];
+        }
+    }
+    dbAddColumnIfMissing($conn, 'inquiries', 'follow_up_date', 'DATE DEFAULT NULL AFTER inquiry_source_id', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'assign_to', 'INT NOT NULL DEFAULT 0 AFTER created_by', $log);
+    dbAddColumnIfMissing($conn, 'inquiries', 'customer_id', 'INT NOT NULL DEFAULT 0 AFTER assign_to', $log);
+    dbAddColumnIfMissing($conn, 'customers', 'customer_type_id', 'INT NOT NULL DEFAULT 0 AFTER customer_no', $log);
+    dbAddColumnIfMissing($conn, 'customers', 'contact_person', 'VARCHAR(150) DEFAULT NULL AFTER company_name', $log);
+    dbAddColumnIfMissing($conn, 'customers', 'remarks', 'TEXT DEFAULT NULL AFTER address', $log);
     if (function_exists('dbDropColumnIfExists')) {
         dbDropColumnIfExists($conn, 'inquiries', 'subject', $log);
     }

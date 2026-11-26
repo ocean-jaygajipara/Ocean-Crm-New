@@ -365,9 +365,243 @@
             });
     }
 
+    function setFilterVisible(show) {
+        var card = document.getElementById('inquiryFilterCard');
+        var btn = document.getElementById('inquiryFilterToggle');
+        if (!card || !btn) return;
+        if (show) {
+            card.removeAttribute('hidden');
+            btn.classList.add('is-active');
+            btn.setAttribute('aria-expanded', 'true');
+            if (window.CrmSelect2 && typeof window.CrmSelect2.init === 'function') {
+                window.CrmSelect2.init(jQuery('#inquiryFilterForm'));
+            }
+        } else {
+            card.setAttribute('hidden', 'hidden');
+            btn.classList.remove('is-active');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    function closeSettingsMenu() {
+        var wrap = document.getElementById('inquirySettingsMenu');
+        if (!wrap) return;
+        var menu = wrap.querySelector('.crm-tool-menu');
+        var btn = document.getElementById('inquirySettingsBtn');
+        if (menu) menu.setAttribute('hidden', 'hidden');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        wrap.classList.remove('is-open');
+    }
+
+    function toggleSettingsMenu() {
+        var wrap = document.getElementById('inquirySettingsMenu');
+        if (!wrap) return;
+        var menu = wrap.querySelector('.crm-tool-menu');
+        var btn = document.getElementById('inquirySettingsBtn');
+        if (!menu || !btn) return;
+        var open = !menu.hasAttribute('hidden');
+        if (open) {
+            closeSettingsMenu();
+        } else {
+            menu.removeAttribute('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+            wrap.classList.add('is-open');
+        }
+    }
+
+    function cellPlainText(html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html == null ? '' : String(html);
+        var sel = tmp.querySelector('select');
+        if (sel) {
+            var opt = sel.options[sel.selectedIndex];
+            return opt ? String(opt.textContent || '').trim() : '';
+        }
+        return String(tmp.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function exportInquiryExcel() {
+        closeSettingsMenu();
+        var headers = [
+            'Sr.', 'Inquiry No', 'Date', 'Customer', 'Company', 'Phone',
+            'Location', 'Source', 'Inquiry Status', 'Follow Up'
+        ];
+        var rows = [];
+        table.rows({ search: 'applied' }).every(function (rowIdx) {
+            var d = this.data() || [];
+            var line = [];
+            for (var c = 0; c < 10; c++) {
+                line.push(cellPlainText(d[c]));
+            }
+            line[0] = String(rowIdx + 1);
+            rows.push(line);
+        });
+
+        function csvEscape(v) {
+            var s = String(v == null ? '' : v);
+            if (/[",\n\r]/.test(s)) {
+                return '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        }
+
+        var lines = [headers.map(csvEscape).join(',')];
+        rows.forEach(function (r) {
+            lines.push(r.map(csvEscape).join(','));
+        });
+        var bom = '\uFEFF';
+        var blob = new Blob([bom + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        var a = document.createElement('a');
+        var stamp = new Date();
+        var y = stamp.getFullYear();
+        var m = String(stamp.getMonth() + 1).padStart(2, '0');
+        var day = String(stamp.getDate()).padStart(2, '0');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'inquiry-export-' + y + m + day + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+        }, 0);
+        if (window.toastr) {
+            toastr.success('Excel export downloaded.');
+        }
+    }
+
+    function printInquiryList() {
+        closeSettingsMenu();
+        var headers = [
+            'Sr.', 'Inquiry No', 'Date', 'Customer', 'Company', 'Phone',
+            'Location', 'Source', 'Inquiry Status', 'Follow Up'
+        ];
+        var bodyRows = [];
+        table.rows({ search: 'applied' }).every(function (rowIdx) {
+            var d = this.data() || [];
+            var tds = '';
+            for (var c = 0; c < 10; c++) {
+                var txt = c === 0 ? String(rowIdx + 1) : cellPlainText(d[c]);
+                tds += '<td>' + jQuery('<div/>').text(txt).html() + '</td>';
+            }
+            bodyRows.push('<tr>' + tds + '</tr>');
+        });
+        var win = window.open('', '_blank');
+        if (!win) {
+            if (window.toastr) toastr.error('Please allow pop-ups to print.');
+            return;
+        }
+        win.document.write(
+            '<!DOCTYPE html><html><head><title>Inquiry List</title>' +
+            '<style>' +
+            'body{font-family:Calibri,Arial,sans-serif;padding:16px;color:#0f172a}' +
+            'h1{font-size:18px;margin:0 0 12px}' +
+            'table{width:100%;border-collapse:collapse;font-size:12px}' +
+            'th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}' +
+            'th{background:#f1f5f9}' +
+            '@media print{body{padding:0}}' +
+            '</style></head><body>' +
+            '<h1>Inquiry List</h1>' +
+            '<table><thead><tr>' +
+            headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+            '</tr></thead><tbody>' + bodyRows.join('') + '</tbody></table>' +
+            '</body></html>'
+        );
+        win.document.close();
+        win.focus();
+        setTimeout(function () {
+            win.print();
+        }, 250);
+    }
+
+    // Open filters when arriving from dashboard shortcuts
+    var openFiltersOnLoad = !!(
+        filterState.filter ||
+        filterState.inquiry_status_id ||
+        filterState.follow_up_status_id
+    );
+    setFilterVisible(openFiltersOnLoad);
+
+    jQuery('#inquiryFilterToggle').on('click', function () {
+        var card = document.getElementById('inquiryFilterCard');
+        var showing = card && !card.hasAttribute('hidden');
+        setFilterVisible(!showing);
+    });
+
+    jQuery('#inquirySettingsBtn').on('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSettingsMenu();
+    });
+
+    jQuery('#inquiryExportExcel').on('click', function (e) {
+        e.preventDefault();
+        exportInquiryExcel();
+    });
+
+    jQuery('#inquiryPrintBtn').on('click', function (e) {
+        e.preventDefault();
+        printInquiryList();
+    });
+
+    function closeAllActionMenus(except) {
+        jQuery('#inquiryTable .crm-action-menu.is-open').each(function () {
+            if (except && this === except) return;
+            jQuery(this).removeClass('is-open');
+            jQuery(this).find('.crm-action-dropdown').attr('hidden', 'hidden');
+            jQuery(this).find('.crm-action-dots').attr('aria-expanded', 'false');
+        });
+    }
+
+    jQuery(document).on('click', '#inquiryTable .js-convert-customer', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAllActionMenus();
+        var href = this.getAttribute('href');
+        if (!href) return;
+        var go = function () { window.location.href = href; };
+        if (window.ConfirmDelete && typeof ConfirmDelete.ask === 'function') {
+            ConfirmDelete.ask(
+                'Convert this inquiry to a customer? Inquiry status will be set to Converted.',
+                go,
+                { title: 'Convert to Customer?', yesLabel: 'Yes, Convert', yesHtml: '<i class="fa-solid fa-user-plus"></i> Yes, Convert', iconClass: 'fa-solid fa-user-plus' }
+            );
+            return;
+        }
+        if (window.confirm('Convert this inquiry to a customer?')) {
+            go();
+        }
+    });
+
+    jQuery(document).on('click', '#inquiryTable .crm-action-dots', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var menu = this.closest('.crm-action-menu');
+        if (!menu) return;
+        var open = menu.classList.contains('is-open');
+        closeAllActionMenus();
+        closeSettingsMenu();
+        if (!open) {
+            menu.classList.add('is-open');
+            var dd = menu.querySelector('.crm-action-dropdown');
+            if (dd) dd.removeAttribute('hidden');
+            this.setAttribute('aria-expanded', 'true');
+        }
+    });
+
+    jQuery(document).on('click', function (e) {
+        var wrap = document.getElementById('inquirySettingsMenu');
+        if (wrap && !wrap.contains(e.target)) {
+            closeSettingsMenu();
+        }
+        if (!e.target.closest || !e.target.closest('#inquiryTable .crm-action-menu')) {
+            closeAllActionMenus();
+        }
+    });
+
     document.addEventListener('click', function (e) {
         var delBtn = e.target.closest('#inquiryTable .btn-delete[data-ajax="1"]');
         if (delBtn) {
+            closeAllActionMenus();
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -393,6 +627,7 @@
 
         var restoreBtn = e.target.closest('#inquiryTable .btn-restore[data-ajax="1"]');
         if (!restoreBtn) return;
+        closeAllActionMenus();
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();

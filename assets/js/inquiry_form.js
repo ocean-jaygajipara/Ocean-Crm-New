@@ -105,6 +105,69 @@
             syncEmptyState();
         });
 
+        // Phone / WhatsApp: numbers + special chars only; respect maxlength from settings
+        var phoneRe = /[^0-9+\-() .\/]/g;
+
+        function syncWhatsappFromPhone() {
+            var $chk = $('#same_as_phone');
+            var $wa = $('#whatsapp');
+            var $phone = $('#phone');
+            if (!$chk.length || !$wa.length || !$phone.length) return;
+            if ($chk.is(':checked')) {
+                $wa.val($phone.val() || '').prop('readonly', true);
+            } else {
+                $wa.prop('readonly', false);
+            }
+        }
+
+        $(document).on('change', '#same_as_phone', function () {
+            if ($(this).is(':checked')) {
+                syncWhatsappFromPhone();
+            } else {
+                $('#whatsapp').prop('readonly', false).val('');
+            }
+        });
+
+        $(document).on('input', '#inquiryForm .js-inq-phone', function () {
+            var el = this;
+            var max = parseInt(el.getAttribute('maxlength') || '40', 10) || 40;
+            var cleaned = String(el.value || '').replace(phoneRe, '');
+            if (cleaned.length > max) {
+                cleaned = cleaned.slice(0, max);
+            }
+            if (el.value !== cleaned) {
+                el.value = cleaned;
+            }
+            if (el.id === 'phone') {
+                syncWhatsappFromPhone();
+            }
+        });
+        $(document).on('keypress', '#inquiryForm .js-inq-phone', function (e) {
+            var ch = String.fromCharCode(e.which || e.keyCode || 0);
+            if (!ch || e.ctrlKey || e.metaKey) return;
+            if (!/[0-9+\-() .\/]/.test(ch)) {
+                e.preventDefault();
+            }
+        });
+        $(document).on('paste', '#inquiryForm .js-inq-phone', function (e) {
+            var el = this;
+            var max = parseInt(el.getAttribute('maxlength') || '40', 10) || 40;
+            setTimeout(function () {
+                var cleaned = String(el.value || '').replace(phoneRe, '');
+                if (cleaned.length > max) cleaned = cleaned.slice(0, max);
+                el.value = cleaned;
+                if (el.id === 'phone') {
+                    syncWhatsappFromPhone();
+                }
+            }, 0);
+        });
+
+        syncWhatsappFromPhone();
+
         syncEmptyState();
+
+        if (typeof window.autosize === 'function') {
+            window.autosize($('#inquiryForm .autosize'));
+        }
     });
 })();

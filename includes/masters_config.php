@@ -150,7 +150,7 @@ function getMastersConfig()
             'table'        => 'inquiry_statuses',
             'folder'       => 'inquiry_statuses',
             'icon'         => 'fa-tags',
-            'color'        => '#2466FB',
+            'color'        => '#e08a0a',
             'name_field'   => 'name',
             'list_columns' => [
                 ['key' => 'name', 'label' => 'Status'],
@@ -225,6 +225,29 @@ function getMastersConfig()
             ],
             'filters' => [
                 ['name' => 'q', 'label' => 'Search', 'type' => 'text', 'placeholder' => 'Source name / code'],
+            ],
+        ],
+        'customer_types' => [
+            'key'          => 'customer_types',
+            'title'        => 'Customer Type Master',
+            'singular'     => 'Customer Type',
+            'table'        => 'customer_types',
+            'folder'       => 'customer_types',
+            'icon'         => 'fa-user-tag',
+            'color'        => '#0D9488',
+            'name_field'   => 'name',
+            'list_columns' => [
+                ['key' => 'name', 'label' => 'Customer Type'],
+                ['key' => 'code', 'label' => 'Code'],
+                ['key' => 'sort_order', 'label' => 'Sort'],
+            ],
+            'fields' => [
+                ['name' => 'name', 'label' => 'Customer Type Name', 'type' => 'text', 'required' => true, 'span' => 2],
+                ['name' => 'code', 'label' => 'Code', 'type' => 'text', 'required' => false, 'span' => 1, 'help' => 'e.g. RETAIL, DEALER'],
+                ['name' => 'sort_order', 'label' => 'Sort Order', 'type' => 'number', 'required' => false, 'span' => 1],
+            ],
+            'filters' => [
+                ['name' => 'q', 'label' => 'Search', 'type' => 'text', 'placeholder' => 'Type name / code'],
             ],
         ],
         'product_categories' => [

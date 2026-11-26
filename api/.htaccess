@@ -1,0 +1,21 @@
+# Ocean CRM API — clean URLs (no .php)
+# /api/login  → login.php
+# /api/me     → me.php
+# /api/logout → logout.php
+
+Options -Indexes
+RewriteEngine On
+
+# Hide shared bootstrap from direct URL access
+<Files "_bootstrap.php">
+    Require all denied
+</Files>
+
+# If request is for existing file/dir, leave it
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Map /api/{name} → {name}.php when that script exists
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^([A-Za-z0-9_-]+)/?$ $1.php [L,QSA]

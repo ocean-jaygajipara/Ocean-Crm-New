@@ -20,32 +20,54 @@ $conn = getDBConnection();
 ensureCompanySettingsSchema($conn);
 
 $current = [
-    'company_name'       => 'Ocean CRM',
-    'login_logo'         => null,
-    'dashboard_logo'     => null,
-    'letterhead'         => null,
-    'inquiry_no_prefix'  => 'INQ',
-    'inquiry_no_mode'    => 'auto',
-    'header_details'     => '',
-    'footer_details'     => '',
+    'company_name'         => 'Ocean CRM',
+    'login_logo'           => null,
+    'dashboard_logo'       => null,
+    'letterhead'           => null,
+    'inquiry_no_prefix'    => 'INQ',
+    'inquiry_no_mode'      => 'auto',
+    'employee_code_prefix' => 'EMP',
+    'employee_code_mode'   => 'auto',
+    'phone_max_length'     => 15,
+    'header_details'       => '',
+    'footer_details'       => '',
 ];
 
-$res = $conn->query(
-    "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
-     FROM company_settings WHERE id = 1 LIMIT 1"
-);
-if ($res && $row = $res->fetch_assoc()) {
+$applyCompanyRow = static function (array &$current, array $row) {
     $current['company_name']   = $row['company_name'];
-    $current['login_logo']     = !empty($row['login_logo']) ? $row['login_logo'] : $row['company_logo'];
-    $current['dashboard_logo'] = !empty($row['dashboard_logo']) ? $row['dashboard_logo'] : $row['company_logo'];
+    $current['login_logo']     = !empty($row['login_logo']) ? $row['login_logo'] : ($row['company_logo'] ?? null);
+    $current['dashboard_logo'] = !empty($row['dashboard_logo']) ? $row['dashboard_logo'] : ($row['company_logo'] ?? null);
     $current['letterhead']     = !empty($row['letterhead']) ? $row['letterhead'] : null;
     $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
     $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
     $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
     $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
     $current['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
+    $empPfx = strtoupper(trim((string) ($row['employee_code_prefix'] ?? 'EMP')));
+    $empPfx = preg_replace('/[^A-Z0-9_-]/', '', $empPfx);
+    $current['employee_code_prefix'] = $empPfx !== '' ? $empPfx : 'EMP';
+    $empMode = strtolower(trim((string) ($row['employee_code_mode'] ?? 'auto')));
+    $current['employee_code_mode'] = in_array($empMode, ['auto', 'manual'], true) ? $empMode : 'auto';
+    $phoneMax = (int) ($row['phone_max_length'] ?? 15);
+    if ($phoneMax < 5) {
+        $phoneMax = 5;
+    }
+    if ($phoneMax > 40) {
+        $phoneMax = 40;
+    }
+    $current['phone_max_length'] = $phoneMax;
     $current['header_details'] = (string) ($row['header_details'] ?? '');
     $current['footer_details'] = (string) ($row['footer_details'] ?? '');
+};
+
+$res = $conn->query(
+    "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead,
+            inquiry_no_prefix, inquiry_no_mode, employee_code_prefix, employee_code_mode,
+            phone_max_length, header_details, footer_details
+     FROM company_settings WHERE id = 1 LIMIT 1"
+);
+if ($res && $row = $res->fetch_assoc()) {
+    $applyCompanyRow($current, $row);
 }
 
 $message = '';
@@ -131,6 +153,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($inquiryMode, ['auto', 'manual'], true)) {
         $inquiryMode = 'auto';
     }
+    $employeeCodePrefix = strtoupper(trim((string) ($_POST['employee_code_prefix'] ?? 'EMP')));
+    $employeeCodePrefix = preg_replace('/[^A-Z0-9_-]/', '', $employeeCodePrefix);
+    if ($employeeCodePrefix === '') {
+        $employeeCodePrefix = 'EMP';
+    }
+    $employeeCodeMode = strtolower(trim((string) ($_POST['employee_code_mode'] ?? 'auto')));
+    if (!in_array($employeeCodeMode, ['auto', 'manual'], true)) {
+        $employeeCodeMode = 'auto';
+    }
+    $phoneMaxLength = (int) ($_POST['phone_max_length'] ?? 15);
+    if ($phoneMaxLength < 5) {
+        $phoneMaxLength = 5;
+    }
+    if ($phoneMaxLength > 40) {
+        $phoneMaxLength = 40;
+    }
     $headerDetails = trim($_POST['header_details'] ?? '');
     $footerDetails = trim($_POST['footer_details'] ?? '');
     $removeLogin = isset($_POST['remove_login_logo']);
@@ -142,6 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
         $current['inquiry_no_prefix'] = $inquiryPrefix;
         $current['inquiry_no_mode'] = $inquiryMode;
+        $current['employee_code_prefix'] = $employeeCodePrefix;
+        $current['employee_code_mode'] = $employeeCodeMode;
+        $current['phone_max_length'] = $phoneMaxLength;
         $current['header_details'] = $headerDetails;
         $current['footer_details'] = $footerDetails;
     } else {
@@ -176,6 +217,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageType = 'error';
             $current['inquiry_no_prefix'] = $inquiryPrefix;
             $current['inquiry_no_mode'] = $inquiryMode;
+            $current['employee_code_prefix'] = $employeeCodePrefix;
+            $current['employee_code_mode'] = $employeeCodeMode;
+            $current['phone_max_length'] = $phoneMaxLength;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         } else {
@@ -200,13 +244,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      letterhead = ?,
                      inquiry_no_prefix = ?,
                      inquiry_no_mode = ?,
+                     employee_code_prefix = ?,
+                     employee_code_mode = ?,
+                     phone_max_length = ?,
                      header_details = ?,
                      footer_details = ?
                  WHERE id = 1"
             );
             $legacy = $dashLogo;
             $stmt->bind_param(
-                'sssssssss',
+                'sssssssssiss',
                 $companyName,
                 $loginLogo,
                 $dashLogo,
@@ -214,6 +261,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $letterhead,
                 $inquiryPrefix,
                 $inquiryMode,
+                $employeeCodePrefix,
+                $employeeCodeMode,
+                $phoneMaxLength,
                 $headerDetails,
                 $footerDetails
             );
@@ -230,6 +280,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn = getDBConnection();
             $current['inquiry_no_prefix'] = $inquiryPrefix;
             $current['inquiry_no_mode'] = $inquiryMode;
+            $current['employee_code_prefix'] = $employeeCodePrefix;
+            $current['employee_code_mode'] = $employeeCodeMode;
+            $current['phone_max_length'] = $phoneMaxLength;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         }
@@ -240,21 +293,13 @@ if (isset($_GET['saved']) && $_GET['saved'] == '1') {
     $message = 'Company settings saved successfully.';
     $messageType = 'success';
     $res = $conn->query(
-        "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
+        "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead,
+                inquiry_no_prefix, inquiry_no_mode, employee_code_prefix, employee_code_mode,
+                phone_max_length, header_details, footer_details
          FROM company_settings WHERE id = 1 LIMIT 1"
     );
     if ($res && $row = $res->fetch_assoc()) {
-        $current['company_name']   = $row['company_name'];
-        $current['login_logo']     = !empty($row['login_logo']) ? $row['login_logo'] : $row['company_logo'];
-        $current['dashboard_logo'] = !empty($row['dashboard_logo']) ? $row['dashboard_logo'] : $row['company_logo'];
-        $current['letterhead']     = !empty($row['letterhead']) ? $row['letterhead'] : null;
-        $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
-        $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
-        $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
-        $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
-        $current['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
-        $current['header_details'] = (string) ($row['header_details'] ?? '');
-        $current['footer_details'] = (string) ($row['footer_details'] ?? '');
+        $applyCompanyRow($current, $row);
     }
 }
 
@@ -316,7 +361,7 @@ $previewLetterhead = $hasLetterhead ? $current['letterhead'] : '';
                                    value="<?php echo htmlspecialchars($current['inquiry_no_prefix'] ?? 'INQ'); ?>"
                                    placeholder="INQ">
                             <small class="form-help">
-                                Auto example: <strong><?php echo htmlspecialchars(($current['inquiry_no_prefix'] ?? 'INQ') . '-' . date('Y') . '-0001'); ?></strong>
+                                Example (auto): <strong><?php echo htmlspecialchars(($current['inquiry_no_prefix'] ?? 'INQ') . '-' . date('Y') . '-0001'); ?></strong>
                             </small>
                         </div>
                     </div>
@@ -329,8 +374,49 @@ $previewLetterhead = $hasLetterhead ? $current['letterhead'] : '';
                                 <option value="manual" <?php echo $inqMode === 'manual' ? 'selected' : ''; ?>>Manual</option>
                             </select>
                             <small class="form-help">
-                                <strong>Auto Generate</strong> — system assigns number (readonly).<br>
-                                <strong>Manual</strong> — user types Inquiry No on add/edit form.
+                                <strong>Auto Generate</strong> — the system creates the Inquiry No (read-only on the form).<br>
+                                <strong>Manual</strong> — the user enters the Inquiry No on the add/edit form.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="phone_max_length">Phone Max Length</label>
+                            <input type="number" id="phone_max_length" name="phone_max_length" class="form-control"
+                                   min="5" max="40" step="1"
+                                   value="<?php echo (int) ($current['phone_max_length'] ?? 15); ?>">
+                            <small class="form-help">
+                                Maximum characters allowed for inquiry phone numbers (5–40).<br>
+                                Allowed characters: digits and <strong>+ - ( ) . / space</strong> only.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="crm-row" style="margin-bottom:8px;">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="employee_code_prefix">Employee Code Prefix</label>
+                            <input type="text" id="employee_code_prefix" name="employee_code_prefix" class="form-control"
+                                   maxlength="20" style="text-transform:uppercase;"
+                                   value="<?php echo htmlspecialchars($current['employee_code_prefix'] ?? 'EMP'); ?>"
+                                   placeholder="EMP">
+                            <small class="form-help">
+                                Example (auto): <strong><?php echo htmlspecialchars(($current['employee_code_prefix'] ?? 'EMP') . '0001'); ?></strong>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="employee_code_mode">Employee Code Mode</label>
+                            <select id="employee_code_mode" name="employee_code_mode" class="form-control js-select2">
+                                <?php $empMode = (string) ($current['employee_code_mode'] ?? 'auto'); ?>
+                                <option value="auto" <?php echo $empMode === 'auto' ? 'selected' : ''; ?>>Auto Generate</option>
+                                <option value="manual" <?php echo $empMode === 'manual' ? 'selected' : ''; ?>>Manual</option>
+                            </select>
+                            <small class="form-help">
+                                <strong>Auto Generate</strong> — system creates Employee Code on Staff User form.<br>
+                                <strong>Manual</strong> — user enters Employee Code on add/edit form.
                             </small>
                         </div>
                     </div>

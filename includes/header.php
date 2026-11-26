@@ -26,6 +26,17 @@ $headerNotifyUnread = 0;
 $headerEmpPhotoUrl = '';
 $headerEmpProfileUrl = '';
 $staffLeaveApplyToasts = [];
+
+try {
+    require_once __DIR__ . '/notification_helper.php';
+    ensureNotificationTables();
+    $headerNotifyPack = fetchUserNotifications((int) ($_SESSION['user_id'] ?? 0), 15);
+    $headerNotifyItems = $headerNotifyPack['items'];
+    $headerNotifyUnread = (int) $headerNotifyPack['unread'];
+} catch (Throwable $e) {
+    $headerNotifyItems = [];
+    $headerNotifyUnread = 0;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -101,7 +112,8 @@ $staffLeaveApplyToasts = [];
                 </div>
             </div>
 
-            <div class="header-notify" id="headerNotify">
+            <div class="header-notify" id="headerNotify"
+                 data-ajax-url="<?php echo htmlspecialchars(app_url('notifications/ajax.php')); ?>">
                 <button type="button"
                         class="header-bell-btn"
                         id="headerBellBtn"
@@ -110,13 +122,37 @@ $staffLeaveApplyToasts = [];
                         aria-controls="headerNotifyPanel"
                         title="Notifications">
                     <i class="fa-solid fa-bell"></i>
+                    <span class="header-bell-badge" id="headerBellBadge"
+                          <?php echo $headerNotifyUnread > 0 ? '' : 'hidden'; ?>>
+                        <?php echo $headerNotifyUnread > 99 ? '99+' : (int) $headerNotifyUnread; ?>
+                    </span>
                 </button>
                 <div class="header-notify-panel" id="headerNotifyPanel" hidden>
                     <div class="header-notify-head">
                         <strong>Notifications</strong>
+                        <div class="header-notify-head-links">
+                            <a href="#" id="headerNotifyMarkAll">Mark all read</a>
+                        </div>
                     </div>
-                    <div class="header-notify-body">
-                        <div class="header-notify-empty">No new notifications</div>
+                    <div class="header-notify-body" id="headerNotifyBody">
+                        <?php if (empty($headerNotifyItems)): ?>
+                            <div class="header-notify-empty">No new notifications</div>
+                        <?php else: ?>
+                            <?php foreach ($headerNotifyItems as $n): ?>
+                                <a class="header-notify-item<?php echo empty($n['is_read']) ? ' is-unread' : ''; ?>"
+                                   href="<?php echo htmlspecialchars($n['link'] !== '' ? $n['link'] : '#'); ?>"
+                                   data-id="<?php echo (int) $n['id']; ?>">
+                                    <span class="header-notify-ico">
+                                        <i class="fa-solid <?php echo ($n['type'] ?? '') === 'inquiry_added' ? 'fa-clipboard-question' : 'fa-bell'; ?>"></i>
+                                    </span>
+                                    <span class="header-notify-meta">
+                                        <strong><?php echo htmlspecialchars($n['title']); ?></strong>
+                                        <small><?php echo htmlspecialchars($n['message']); ?></small>
+                                        <small class="header-notify-time"><?php echo htmlspecialchars($n['time_ago']); ?></small>
+                                    </span>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

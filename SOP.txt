@@ -31,7 +31,7 @@ Steps:
   2. System users table mathi match kare
   3. Session set thay:
        - user_id, username, full_name, role
-       - custom_role_id, custom_role_name, role_code
+       - role_id, role_name, role_code
        - permissions (role_permissions mathi)
   4. Redirect → dashboard.php
 
@@ -147,9 +147,18 @@ Files:
        - Requirement Details
        - Product Details (multi rows: Product + Qty + Requirements)
        - Inquiry Status, Follow Up Status, Source
-       - Next Follow Up Date
+       - Follow Up Date
        - Created By / Assign To
   3. Save → inquiries + inquiry_products tables
+  4. Admin notification:
+       - Koi pan user inquiry ADD kare tyre badha Admin users ne
+         header bell notification aave (creator pote admin hoy to
+         pote ne skip)
+       - Bell click → message + inquiry open link
+       - Mark all read / click item = read
+       - Table: notifications
+       - Helper: includes/notification_helper.php
+       - AJAX: notifications/ajax.php
 
 Created By / Assign To rules:
   - Admin : Created By change kari shake
@@ -159,7 +168,7 @@ Created By / Assign To rules:
   - Filters: Search, Country, State, City, Source, Status, Follow Up, Active/Deleted
   - Grid columns: Sr, Inquiry No, Date, Customer, Company, Phone,
                   Location, Source, Inquiry Status, Follow Up, Action
-  - Next Follow Up column LIST mathi remove che (form ma field rehse)
+  - Follow Up Date column LIST mathi remove che (form ma field rehse)
 
 6.3 Grid mathi Status Update (inline)
   - Inquiry Status dropdown → change → AJAX save (ajax_status.php)
@@ -237,7 +246,7 @@ Dashboard → Inquiry list filters:
 10) DATABASE — KEY TABLES
 --------------------------------------------------------------------------------
 users
-  id, username, password, full_name, role, custom_role_id,
+  id, username, password, full_name, role, role_id,
   reports_to, status, …
 
 roles
@@ -250,7 +259,7 @@ inquiries
   inquiry_no, inquiry_date, customer_name, company_name, phone, email,
   country_id, state_id, city_id, area_id, address, requirement_details,
   inquiry_status_id, follow_up_status_id, inquiry_source_id,
-  next_follow_up_date, created_by, assign_to, status
+  follow_up_date, created_by, assign_to, status
 
 inquiry_products
   inquiry_id, product_id, qty, requirements, sort_order

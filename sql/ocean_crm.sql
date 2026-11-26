@@ -30,14 +30,16 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
-    role ENUM('admin', 'hr', 'employee') NOT NULL DEFAULT 'admin',
+    employee_code VARCHAR(50) DEFAULT NULL,
     department_id INT NULL,
-    custom_role_id INT NULL,
+    role_id INT NULL,
     employee_id INT NULL,
+    reports_to INT NOT NULL DEFAULT 0,
     status TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_users_custom_role (custom_role_id),
-    INDEX idx_users_employee (employee_id)
+    INDEX idx_users_role (role_id),
+    INDEX idx_users_employee (employee_id),
+    INDEX idx_users_reports_to (reports_to)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS roles (

@@ -381,11 +381,15 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
 
     $id = (int) $id;
     $userId = (int) $userId;
-    $inquiryDate = $data['inquiry_date'] ?? date('Y-m-d');
+    $inquiryDate = normalizeDatePost($data['inquiry_date'] ?? '', false);
+    if ($inquiryDate === null || $inquiryDate === '') {
+        $inquiryDate = date('Y-m-d');
+    }
     $customerName = trim((string) ($data['customer_name'] ?? ''));
     $companyName = trim((string) ($data['company_name'] ?? ''));
     $email = trim((string) ($data['email'] ?? ''));
     $phone = trim((string) ($data['phone'] ?? ''));
+    $whatsapp = trim((string) ($data['whatsapp'] ?? ''));
     $countryId = (int) ($data['country_id'] ?? 0);
     $stateId = (int) ($data['state_id'] ?? 0);
     $cityId = (int) ($data['city_id'] ?? 0);
@@ -411,7 +415,7 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
         $sourceId = getDefaultInquirySourceId();
     }
 
-    $nextFuDate = trim((string) ($data['next_follow_up_date'] ?? ''));
+    $nextFuDate = normalizeDatePost($data['follow_up_date'] ?? '');
     $assignTo = (int) ($data['assign_to'] ?? 0);
     if ($assignTo < 0) {
         $assignTo = 0;
@@ -431,7 +435,25 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
         return ['ok' => false, 'error' => 'Customer Name is required.', 'id' => 0];
     }
 
+    if (!function_exists('getInquiryPhoneMaxLength')) {
+        require_once __DIR__ . '/settings.php';
+    }
+    $phoneMaxLen = getInquiryPhoneMaxLength();
     if ($phone !== '') {
+        if (!isValidInquiryPhoneChars($phone)) {
+            return [
+                'ok'    => false,
+                'error' => 'Phone may only contain digits and special characters (+ - ( ) . / space).',
+                'id'    => $id,
+            ];
+        }
+        if (mb_strlen($phone) > $phoneMaxLen) {
+            return [
+                'ok'    => false,
+                'error' => 'Phone cannot exceed ' . $phoneMaxLen . ' characters.',
+                'id'    => $id,
+            ];
+        }
         $dup = findInquiryByPhone($phone, $id);
         if ($dup) {
             $dupNo = (string) ($dup['inquiry_no'] ?? ('#' . (int) $dup['id']));
@@ -442,6 +464,22 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
             }
             $msg .= '. Duplicate phone is not allowed.';
             return ['ok' => false, 'error' => $msg, 'id' => $id];
+        }
+    }
+    if ($whatsapp !== '') {
+        if (!isValidInquiryPhoneChars($whatsapp)) {
+            return [
+                'ok'    => false,
+                'error' => 'WhatsApp may only contain digits and special characters (+ - ( ) . / space).',
+                'id'    => $id,
+            ];
+        }
+        if (mb_strlen($whatsapp) > $phoneMaxLen) {
+            return [
+                'ok'    => false,
+                'error' => 'WhatsApp cannot exceed ' . $phoneMaxLen . ' characters.',
+                'id'    => $id,
+            ];
         }
     }
 
@@ -467,20 +505,21 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
 
         if ($canEditCreatedBy) {
             $stmt = $conn->prepare(
-                'UPDATE inquiries SET inquiry_no=?, inquiry_date=?, customer_name=?, company_name=?, email=?, phone=?,
+                'UPDATE inquiries SET inquiry_no=?, inquiry_date=?, customer_name=?, company_name=?, email=?, phone=?, whatsapp=?,
                  country_id=?, state_id=?, city_id=?, area_id=?, address=?, requirement_details=?,
-                 inquiry_status_id=?, follow_up_status_id=?, inquiry_source_id=?, next_follow_up_date=NULLIF(?, \'\' ),
+                 inquiry_status_id=?, follow_up_status_id=?, inquiry_source_id=?, follow_up_date=NULLIF(?, \'\' ),
                  created_by=?, assign_to=?
                  WHERE id=? AND status=1'
             );
             $stmt->bind_param(
-                'ssssssiiiissiiisiii',
+                'sssssssiiiissiiisiii',
                 $inquiryNo,
                 $inquiryDate,
                 $customerName,
                 $companyName,
                 $email,
                 $phone,
+                $whatsapp,
                 $countryId,
                 $stateId,
                 $cityId,
@@ -497,20 +536,21 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
             );
         } else {
             $stmt = $conn->prepare(
-                'UPDATE inquiries SET inquiry_no=?, inquiry_date=?, customer_name=?, company_name=?, email=?, phone=?,
+                'UPDATE inquiries SET inquiry_no=?, inquiry_date=?, customer_name=?, company_name=?, email=?, phone=?, whatsapp=?,
                  country_id=?, state_id=?, city_id=?, area_id=?, address=?, requirement_details=?,
-                 inquiry_status_id=?, follow_up_status_id=?, inquiry_source_id=?, next_follow_up_date=NULLIF(?, \'\' ),
+                 inquiry_status_id=?, follow_up_status_id=?, inquiry_source_id=?, follow_up_date=NULLIF(?, \'\' ),
                  assign_to=?
                  WHERE id=? AND status=1'
             );
             $stmt->bind_param(
-                'ssssssiiiissiiisii',
+                'sssssssiiiissiiisii',
                 $inquiryNo,
                 $inquiryDate,
                 $customerName,
                 $companyName,
                 $email,
                 $phone,
+                $whatsapp,
                 $countryId,
                 $stateId,
                 $cityId,
@@ -548,20 +588,21 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
 
     $stmt = $conn->prepare(
         'INSERT INTO inquiries
-         (inquiry_no, inquiry_date, customer_name, company_name, email, phone,
+         (inquiry_no, inquiry_date, customer_name, company_name, email, phone, whatsapp,
           country_id, state_id, city_id, area_id, address, requirement_details,
-          inquiry_status_id, follow_up_status_id, inquiry_source_id, next_follow_up_date,
+          inquiry_status_id, follow_up_status_id, inquiry_source_id, follow_up_date,
           created_by, assign_to, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULLIF(?, \'\' ),?,?,1)'
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULLIF(?, \'\' ),?,?,1)'
     );
     $stmt->bind_param(
-        'ssssssiiiissiiisii',
+        'sssssssiiiissiiisii',
         $inquiryNo,
         $inquiryDate,
         $customerName,
         $companyName,
         $email,
         $phone,
+        $whatsapp,
         $countryId,
         $stateId,
         $cityId,
@@ -581,6 +622,10 @@ function saveInquiry(array $data, $id = 0, $userId = 0)
     $stmt->close();
     if ($ok && $newId > 0) {
         saveInquiryProducts($newId, $data);
+        if (!function_exists('notifyAdminsNewInquiry')) {
+            require_once __DIR__ . '/notification_helper.php';
+        }
+        notifyAdminsNewInquiry($newId, $inquiryNo, $customerName, $createdBy);
     }
     return ['ok' => $ok, 'error' => $err, 'id' => $newId, 'inquiry_no' => $inquiryNo];
 }
@@ -595,7 +640,7 @@ function getInquiryUserOptions()
     $out = [];
     $res = $conn->query(
         "SELECT id, full_name, username FROM users
-         WHERE status = 1 AND role IN ('admin', 'hr', 'employee')
+         WHERE status = 1
          ORDER BY full_name ASC, username ASC"
     );
     if ($res) {
@@ -955,6 +1000,10 @@ function inquiryAjaxListJson()
 
     $canDelete = function_exists('canAccess') ? canAccess('inquiry', 'delete') : false;
     $canEdit = function_exists('canAccess') ? canAccess('inquiry', 'edit') : false;
+    $canView = function_exists('canAccess') ? canAccess('inquiry', 'view') : false;
+    $canConvert = function_exists('canAccess')
+        ? (canAccess('customers', 'add') || canAccess('inquiry', 'edit'))
+        : false;
     if (!$canDelete && $recordStatus !== 'active') {
         $recordStatus = 'active';
     }
@@ -976,7 +1025,7 @@ function inquiryAjaxListJson()
         $types .= 's';
         $params[] = date('Y-m-d');
     } elseif ($quickFilter === 'due_follow_up') {
-        $where[] = 'i.next_follow_up_date IS NOT NULL AND i.next_follow_up_date <= ?';
+        $where[] = 'i.follow_up_date IS NOT NULL AND i.follow_up_date <= ?';
         $types .= 's';
         $params[] = date('Y-m-d');
     }
@@ -1036,10 +1085,10 @@ function inquiryAjaxListJson()
         $params[] = $cityId;
     }
     if ($q !== '') {
-        $where[] = '(i.inquiry_no LIKE ? OR i.customer_name LIKE ? OR i.company_name LIKE ? OR i.phone LIKE ? OR i.email LIKE ? OR i.address LIKE ?)';
-        $types .= 'ssssss';
+        $where[] = '(i.inquiry_no LIKE ? OR i.customer_name LIKE ? OR i.company_name LIKE ? OR i.phone LIKE ? OR i.whatsapp LIKE ? OR i.email LIKE ? OR i.address LIKE ?)';
+        $types .= 'sssssss';
         $like = '%' . $q . '%';
-        array_push($params, $like, $like, $like, $like, $like, $like);
+        array_push($params, $like, $like, $like, $like, $like, $like, $like);
     }
     if ($where === []) {
         $where[] = '1=1';
@@ -1083,21 +1132,52 @@ function inquiryAjaxListJson()
                 $loc = htmlspecialchars($loc);
             }
 
-            $actions = '<div class="action-links" onclick="event.stopPropagation();">';
+            $viewUrl = app_url('inquiry/view.php?id=' . $id);
+            $convertUrl = app_url('inquiry/convert_customer.php?id=' . $id);
+            $linkedCustomerId = (int) ($row['customer_id'] ?? 0);
+            $escLabel = htmlspecialchars((string) $label);
+            $menuItems = '';
+            if ($canView) {
+                $menuItems .= '<a href="' . htmlspecialchars($viewUrl) . '" class="crm-action-item" role="menuitem">'
+                    . '<i class="fa-solid fa-eye"></i><span>View</span></a>';
+            }
             if ($isActive) {
-                $actions .= '<a href="' . htmlspecialchars($editUrl) . '" class="action-btn edit" title="Edit"><i class="fa-solid fa-pen"></i></a>';
+                if ($canEdit) {
+                    $menuItems .= '<a href="' . htmlspecialchars($editUrl) . '" class="crm-action-item" role="menuitem">'
+                        . '<i class="fa-solid fa-pen"></i><span>Edit</span></a>';
+                }
+                if ($linkedCustomerId > 0 && (canAccess('customers', 'view') || $canView)) {
+                    $menuItems .= '<a href="' . htmlspecialchars(app_url('customers/view.php?id=' . $linkedCustomerId)) . '" class="crm-action-item is-success" role="menuitem">'
+                        . '<i class="fa-solid fa-user-check"></i><span>View Customer</span></a>';
+                } elseif ($canConvert && $linkedCustomerId <= 0) {
+                    $menuItems .= '<a href="' . htmlspecialchars($convertUrl) . '" class="crm-action-item js-convert-customer" role="menuitem">'
+                        . '<i class="fa-solid fa-user-plus"></i><span>Convert to Customer</span></a>';
+                }
                 if ($canDelete) {
-                    $actions .= '<a href="' . htmlspecialchars($delUrl) . '" class="action-btn delete btn-delete" data-ajax="1" data-name="' . htmlspecialchars((string) $label) . '" title="Delete"><i class="fa-solid fa-trash"></i></a>';
+                    $menuItems .= '<a href="' . htmlspecialchars($delUrl) . '" class="crm-action-item is-danger btn-delete" data-ajax="1" data-name="' . $escLabel . '" role="menuitem">'
+                        . '<i class="fa-solid fa-trash"></i><span>Delete</span></a>';
                 }
             } else {
-                $actions .= '<span class="crm-status-badge is-deleted">Deleted</span>';
+                $menuItems .= '<span class="crm-action-item is-muted" role="menuitem">'
+                    . '<i class="fa-solid fa-ban"></i><span>Deleted</span></span>';
                 if ($canDelete) {
-                    $actions .= '<a href="' . htmlspecialchars($restoreUrl) . '" class="action-btn restore btn-restore" data-ajax="1" data-name="' . htmlspecialchars((string) $label) . '" title="Restore"><i class="fa-solid fa-rotate-left"></i></a>';
+                    $menuItems .= '<a href="' . htmlspecialchars($restoreUrl) . '" class="crm-action-item is-success btn-restore" data-ajax="1" data-name="' . $escLabel . '" role="menuitem">'
+                        . '<i class="fa-solid fa-rotate-left"></i><span>Restore</span></a>';
                 }
             }
-            $actions .= '</div>';
 
-            $dateShow = !empty($row['inquiry_date']) ? date('d-m-Y', strtotime($row['inquiry_date'])) : '—';
+            if ($menuItems === '') {
+                $actions = '<span class="crm-cell-empty">—</span>';
+            } else {
+                $actions = '<div class="crm-action-menu" onclick="event.stopPropagation();">'
+                    . '<button type="button" class="crm-action-dots" title="Actions" aria-label="Actions" aria-expanded="false" aria-haspopup="true">'
+                    . '<i class="fa-solid fa-ellipsis-vertical"></i>'
+                    . '</button>'
+                    . '<div class="crm-action-dropdown" role="menu" hidden>' . $menuItems . '</div>'
+                    . '</div>';
+            }
+
+            $dateShow = formatDateDisplay($row['inquiry_date'] ?? '') ?: '—';
             $statusKey = (int) ($row['inquiry_status_id'] ?? 0);
             $fuKey = (int) ($row['follow_up_status_id'] ?? 0);
             $sourceKey = (int) ($row['inquiry_source_id'] ?? 0);

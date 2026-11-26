@@ -1,0 +1,188 @@
+﻿================================================================================
+  OCEAN CRM — API DOCUMENTATION
+================================================================================
+Base URL (local) : http://localhost/Ocean%20Crm%20New/api/
+Format           : JSON
+Content-Type     : application/json
+                   (also supports form-data / x-www-form-urlencoded)
+Token validity   : 30 days from login
+
+
+--------------------------------------------------------------------------------
+COMMON RESPONSE SHAPE
+--------------------------------------------------------------------------------
+
+Normal success:
+  {
+    "status": true,
+    "message": "...",
+    "data": { ... }
+  }
+
+Login success (token pachi data):
+  {
+    "status": true,
+    "message": "...",
+    "token": "...",
+    "data": { ... }
+  }
+
+Error:
+  {
+    "status": false,
+    "message": "...",
+    "data": { ... }   // optional details
+  }
+
+
+--------------------------------------------------------------------------------
+AUTH (protected APIs)
+--------------------------------------------------------------------------------
+Header (preferred):
+  Authorization: Bearer <token>
+
+OR header:
+  X-Api-Token: <token>
+
+OR body / query:
+  token=<token>
+
+
+================================================================================
+1) LOGIN
+================================================================================
+Full URL : http://localhost/Ocean%20Crm%20New/api/login
+Method   : POST
+Auth     : No
+
+Parameters:
+  username     (string, required)  Login username
+  password     (string, required)  Login password
+  role         (enum, required)    admin | sales_person
+  device_info  (string, optional)  Device / app name
+
+Role enum:
+  admin
+  sales_person
+  (also accepted aliases → sales_person: sales, sales-person, salesperson)
+
+Example request (JSON):
+  {
+    "username": "ADMIN",
+    "password": "your_password",
+    "role": "admin",
+    "device_info": "Android App"
+  }
+
+Example request (form-data):
+  username=JAY
+  password=Sales@123
+  role=sales_person
+
+Success response:
+  {
+    "status": true,
+    "message": "Login successful.",
+    "token": "3c076086dcb89ebd2429825f51b4cbe3243b458b7ba136de419e2d1bc70d5ee2",
+    "data": {
+      "id": 1,
+      "username": "ADMIN",
+      "full_name": "Jay Ocean",
+      "role_id": 0,
+      "role_name": "Admin",
+      "department_id": 0,
+      "employee_code": ""
+    }
+  }
+
+Error examples:
+  405  Method not allowed. Use POST.
+  422  username and password are required.
+  422  Invalid role. Allowed: admin, sales_person.
+  401  Invalid username or password.
+  403  Selected role does not match this account.
+
+Notes:
+  - username match case-insensitive (DB ma uppercase store)
+  - role must match account:
+      admin        → users.role_id empty / 0 (full access)
+      sales_person → users.role_id → roles (e.g. Sales Person)
+  - Success ma pehla token, pachi data (user) aave
+
+
+================================================================================
+2) LOGOUT
+================================================================================
+Full URL : http://localhost/Ocean%20Crm%20New/api/logout
+Method   : POST (GET also OK)
+Auth     : Yes
+
+Parameters:
+  token  (string, required if header ma nathi)
+
+Headers (preferred):
+  Authorization: Bearer <token>
+
+Success response:
+  {
+    "status": true,
+    "message": "Logout successful."
+  }
+
+Error examples:
+  422  token is required.
+  404  Token not found or already logged out.
+
+
+================================================================================
+3) ME (CURRENT USER)
+================================================================================
+Full URL : http://localhost/Ocean%20Crm%20New/api/me
+Method   : GET / POST
+Auth     : Yes
+
+Parameters:
+  token  (string, optional if Authorization / X-Api-Token header used)
+
+Success response:
+  {
+    "status": true,
+    "message": "OK",
+    "data": {
+      "id": 1,
+      "username": "ADMIN",
+      "full_name": "Jay Ocean",
+      "role_id": 0,
+      "role_name": "Admin",
+      "department_id": 0,
+      "employee_code": ""
+    }
+  }
+
+Error examples:
+  401  Unauthorized. Token required.
+  401  Unauthorized. Invalid token.
+  401  Unauthorized. Token expired.
+
+
+================================================================================
+data (USER OBJECT) FIELDS
+================================================================================
+  id                 int     User ID
+  username           string  Username
+  full_name          string  Display name
+  role_id            int     users.role_id → roles.id (0 = Admin default)
+  role_name          string  Roles page name (e.g. Sales Person, Admin)
+  department_id      int     Department ID
+  employee_code      string  Employee code (users.employee_code)
+
+
+================================================================================
+ADD NEW APIs BELOW (same format)
+================================================================================
+(Future: Inquiry list, Customer list, etc.)
+
+
+================================================================================
+END OF API DOCUMENTATION
+================================================================================

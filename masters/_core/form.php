@@ -120,11 +120,11 @@ if (!function_exists('masterFieldValue')) {
                             <?php elseif ($field['type'] === 'color'): ?>
                                 <div class="color-input-row">
                                     <input type="color" class="form-control color-picker"
-                                           value="<?php echo htmlspecialchars($val ?: '#2466FB'); ?>"
+                                           value="<?php echo htmlspecialchars($val ?: '#e08a0a'); ?>"
                                            oninput="this.nextElementSibling.value=this.value">
                                     <input type="text" name="<?php echo htmlspecialchars($field['name']); ?>"
                                            class="form-control" <?php echo $req; ?>
-                                           value="<?php echo htmlspecialchars((string) ($val ?: '#2466FB')); ?>">
+                                           value="<?php echo htmlspecialchars((string) ($val ?: '#e08a0a')); ?>">
                                 </div>
 
                             <?php elseif ($field['type'] === 'checkbox'): ?>

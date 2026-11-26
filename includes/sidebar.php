@@ -26,6 +26,14 @@ $sidebarLogoSrc = $sidebarLogoPath;
 if ($sidebarLogoSrc && strpos($sidebarLogoSrc, 'http') !== 0 && strpos($sidebarLogoSrc, '/') !== 0) {
     $sidebarLogoSrc = app_url($sidebarLogoSrc);
 }
+$sidebarLogoFile = '';
+if (!empty($sidebarLogoPath) && strpos((string) $sidebarLogoPath, 'http') !== 0) {
+    $sidebarLogoFile = __DIR__ . '/../' . ltrim((string) $sidebarLogoPath, '/');
+}
+$sidebarLogoVer = (is_file($sidebarLogoFile) ? (int) @filemtime($sidebarLogoFile) : time());
+if ($sidebarLogoSrc !== '') {
+    $sidebarLogoSrc .= (strpos($sidebarLogoSrc, '?') === false ? '?' : '&') . 'v=' . $sidebarLogoVer;
+}
 $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Ocean CRM';
 ?>
 
@@ -35,7 +43,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Oc
             <img src="<?php echo htmlspecialchars($sidebarLogoSrc); ?>"
                  alt="<?php echo htmlspecialchars($sidebarCompanyName); ?>"
                  class="sidebar-logo-img"
-                 onerror="this.src='<?php echo app_url('assets/images/ocean-crm-logo.png'); ?>'">
+                 onerror="this.src='<?php echo app_url('assets/images/ocean-crm-logo.png'); ?>?v=<?php echo time(); ?>'">
             <span class="sidebar-company-name"><?php echo htmlspecialchars($sidebarCompanyName); ?></span>
         </a>
         <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Hide / Show sidebar" aria-label="Toggle sidebar">
@@ -73,9 +81,15 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Oc
                     <i class="fa-solid fa-clipboard-question"></i><span>Inquiry</span>
                 </a>
                 <?php endif; ?>
+                <?php if (isAdmin() || canAccess('customers', 'view')): ?>
+                <a href="<?php echo app_url('customers/index.php'); ?>"
+                   class="sidebar-link <?php echo $sidebarActive === 'customers' ? 'active' : ''; ?>">
+                    <i class="fa-solid fa-users"></i><span>Customers</span>
+                </a>
+                <?php endif; ?>
                 <?php if (isAdmin() || canAccess('masters', 'view')): ?>
                 <a href="<?php echo app_url('masters/index.php'); ?>"
-                   class="sidebar-link <?php echo in_array($sidebarActive, ['hub', 'departments', 'designations', 'countries', 'states', 'cities', 'areas', 'inquiry_statuses', 'follow_up_statuses', 'inquiry_sources', 'product_categories', 'product_subcategories', 'products'], true) ? 'active' : ''; ?>">
+                   class="sidebar-link <?php echo in_array($sidebarActive, ['hub', 'departments', 'designations', 'countries', 'states', 'cities', 'areas', 'inquiry_statuses', 'follow_up_statuses', 'inquiry_sources', 'customer_types', 'product_categories', 'product_subcategories', 'products'], true) ? 'active' : ''; ?>">
                     <i class="fa-solid fa-database"></i><span>Masters</span>
                 </a>
                 <?php endif; ?>

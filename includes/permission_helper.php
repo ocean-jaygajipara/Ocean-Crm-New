@@ -20,7 +20,7 @@ function ensureRoleTables($conn = null)
 }
 
 /**
- * Sales Person role: Inquiry View/Add/Edit only (no masters/users/roles)
+ * Sales Person role: Inquiry + Customers only (no masters/users/roles)
  */
 function ensureSalesPersonDefaultPermissions($conn = null)
 {
@@ -40,18 +40,31 @@ function ensureSalesPersonDefaultPermissions($conn = null)
         return;
     }
     $roleId = (int) $row['id'];
+    // Keep Sales matrix aligned (Admin can still edit later on Roles page)
     $chk = $conn->query(
         'SELECT COUNT(*) AS c FROM role_permissions WHERE role_id = ' . $roleId
     );
     $count = $chk ? (int) ($chk->fetch_assoc()['c'] ?? 0) : 0;
     if ($count > 0) {
-        return;
+        // Ensure masters/users/roles stay off if only inquiry was seeded
+        $hasMasters = $conn->query(
+            "SELECT can_view FROM role_permissions
+             WHERE role_id = {$roleId} AND module_key = 'masters' AND department_id = 0 LIMIT 1"
+        );
+        $m = $hasMasters ? $hasMasters->fetch_assoc() : null;
+        if ($m && (int) ($m['can_view'] ?? 0) === 1) {
+            return; // Admin customized — leave as-is
+        }
+        if ($count >= 5) {
+            return;
+        }
     }
     saveRolePermissionMatrix($roleId, 0, [
-        'inquiry' => ['view' => 1, 'add' => 1, 'edit' => 1, 'delete' => 0],
-        'masters' => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
-        'users'   => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
-        'roles'   => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
+        'inquiry'   => ['view' => 1, 'add' => 1, 'edit' => 1, 'delete' => 0],
+        'customers' => ['view' => 1, 'add' => 1, 'edit' => 1, 'delete' => 0],
+        'masters'   => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
+        'users'     => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
+        'roles'     => ['view' => 0, 'add' => 0, 'edit' => 0, 'delete' => 0],
     ]);
 }
 
@@ -62,7 +75,7 @@ function fetchRoles($activeOnly = false)
     ensureRoleTables();
     $conn = getDBConnection();
     $sql = 'SELECT r.*,
-                   (SELECT COUNT(*) FROM users u WHERE u.custom_role_id = r.id) AS user_count
+                   (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) AS user_count
             FROM roles r';
     if ($activeOnly) {
         $sql .= ' WHERE r.status = 1';
@@ -158,7 +171,7 @@ function deleteRole($id)
     ensureRoleTables();
     $conn = getDBConnection();
 
-    $stmt = $conn->prepare('SELECT COUNT(*) AS c FROM users WHERE custom_role_id = ?');
+    $stmt = $conn->prepare('SELECT COUNT(*) AS c FROM users WHERE role_id = ?');
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $c = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
@@ -273,8 +286,8 @@ function saveRolePermissionMatrix($roleId, $departmentId, array $perms)
         $conn->commit();
 
         // Refresh session cache if current user has this role
-        if (!empty($_SESSION['custom_role_id']) && (int) $_SESSION['custom_role_id'] === $roleId) {
-            loadUserPermissionsIntoSession((int) $_SESSION['custom_role_id'], true);
+        if (!empty($_SESSION['role_id']) && (int) $_SESSION['role_id'] === $roleId) {
+            loadUserPermissionsIntoSession((int) $_SESSION['role_id'], true);
         }
 
         return ['ok' => true];
@@ -339,7 +352,7 @@ function loadUserPermissionsIntoSession($roleId, $force = false)
 
 function clearPermissionSessionCache()
 {
-    unset($_SESSION['permissions'], $_SESSION['permissions_role_id'], $_SESSION['custom_role_id']);
+    unset($_SESSION['permissions'], $_SESSION['permissions_role_id'], $_SESSION['role_id']);
 }
 
 /**
@@ -400,12 +413,12 @@ function canAccess($module, $action = 'view', $departmentId = 0)
     if (!isValidPermissionModule($module) || !isValidPermissionAction($action)) {
         return false;
     }
-    if (empty($_SESSION['custom_role_id'])) {
+    if (empty($_SESSION['role_id'])) {
         return false;
     }
 
     static $permsLoadedFor = 0;
-    $roleId = (int) $_SESSION['custom_role_id'];
+    $roleId = (int) $_SESSION['role_id'];
     if ($permsLoadedFor !== $roleId) {
         loadUserPermissionsIntoSession($roleId, true);
         $permsLoadedFor = $roleId;
@@ -465,11 +478,11 @@ function allowedDepartmentsFor($module, $action = 'view')
     if (isAdmin()) {
         return null;
     }
-    if (empty($_SESSION['custom_role_id'])) {
+    if (empty($_SESSION['role_id'])) {
         return [];
     }
-    if (!isset($_SESSION['permissions']) || (int) ($_SESSION['permissions_role_id'] ?? 0) !== (int) $_SESSION['custom_role_id']) {
-        loadUserPermissionsIntoSession((int) $_SESSION['custom_role_id'], true);
+    if (!isset($_SESSION['permissions']) || (int) ($_SESSION['permissions_role_id'] ?? 0) !== (int) $_SESSION['role_id']) {
+        loadUserPermissionsIntoSession((int) $_SESSION['role_id'], true);
     }
     if (empty($_SESSION['role_code']) && function_exists('refreshHeadedDepartmentsSession')) {
         refreshHeadedDepartmentsSession();
@@ -617,7 +630,7 @@ function getReportsToOptions($excludeUserId = 0)
     $out = [];
     $res = $conn->query(
         "SELECT id, full_name, username FROM users
-         WHERE status = 1 AND role IN ('admin', 'hr', 'employee')
+         WHERE status = 1
          ORDER BY full_name ASC, username ASC"
     );
     if ($res) {
@@ -644,16 +657,16 @@ function fetchStaffUsers()
 {
     ensureRoleTables();
     $conn = getDBConnection();
-    $sql = "SELECT u.id, u.username, u.full_name, u.role, u.department_id, u.custom_role_id,
-                   u.reports_to, u.status,
+    $sql = "SELECT u.id, u.username, u.full_name, u.employee_code, u.department_id, u.role_id,
+                   u.reports_to, u.status, u.employee_id,
                    r.name AS role_name, d.name AS department_name,
                    m.full_name AS reports_to_name, m.username AS reports_to_username
             FROM users u
-            LEFT JOIN roles r ON r.id = u.custom_role_id
+            LEFT JOIN roles r ON r.id = u.role_id
             LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users m ON m.id = u.reports_to
-            WHERE u.role IN ('admin', 'hr')
-            ORDER BY u.role ASC, u.full_name ASC";
+            WHERE (u.employee_id IS NULL OR u.employee_id = 0)
+            ORDER BY (u.role_id IS NULL OR u.role_id = 0) DESC, u.full_name ASC";
     $rows = [];
     $res = $conn->query($sql);
     if ($res) {
@@ -673,8 +686,10 @@ function getStaffUserById($id)
     ensureRoleTables();
     $conn = getDBConnection();
     $stmt = $conn->prepare(
-        "SELECT id, username, full_name, role, department_id, custom_role_id, reports_to, status
-         FROM users WHERE id = ? AND role IN ('admin', 'hr') LIMIT 1"
+        "SELECT id, username, full_name, employee_code, department_id, role_id, reports_to, status, employee_id
+         FROM users
+         WHERE id = ? AND (employee_id IS NULL OR employee_id = 0)
+         LIMIT 1"
     );
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -689,15 +704,18 @@ function saveStaffUser(array $data, $id = 0)
     $id = (int) $id;
     $username = forceDetailUpper($data['username'] ?? '');
     $fullName = forceDetailUpper($data['full_name'] ?? '');
+    $employeeCode = forceDetailUpper($data['employee_code'] ?? '');
     $password = (string) ($data['password'] ?? '');
-    $role = strtolower(trim((string) ($data['role'] ?? 'hr')));
-    if (!in_array($role, ['admin', 'hr'], true)) {
-        $role = 'hr';
-    }
     $departmentId = (int) ($data['department_id'] ?? 0);
     $departmentId = $departmentId > 0 ? $departmentId : null;
-    $customRoleId = (int) ($data['custom_role_id'] ?? 0);
-    $customRoleId = $customRoleId > 0 ? $customRoleId : null;
+    $roleId = (int) ($data['role_id'] ?? 0);
+    $roleId = $roleId > 0 ? $roleId : null;
+    if ($roleId !== null) {
+        $roleRow = getRoleById($roleId);
+        if (!$roleRow || (int) ($roleRow['status'] ?? 0) !== 1) {
+            return ['ok' => false, 'error' => 'Select a valid role.'];
+        }
+    }
     $reportsTo = (int) ($data['reports_to'] ?? 0);
     if ($reportsTo < 0) {
         $reportsTo = 0;
@@ -710,12 +728,33 @@ function saveStaffUser(array $data, $id = 0)
     if ($id <= 0 && $password === '') {
         return ['ok' => false, 'error' => 'Password is required for new users.'];
     }
-    // Admin login role does not need custom role; HR should have one for module access
-    if ($role === 'admin') {
-        $customRoleId = null;
+
+    if (!function_exists('isEmployeeCodeAuto')) {
+        require_once __DIR__ . '/settings.php';
     }
+    $empCodeAuto = isEmployeeCodeAuto();
 
     $conn = getDBConnection();
+
+    if ($empCodeAuto) {
+        if ($id > 0) {
+            $keep = $conn->prepare('SELECT employee_code FROM users WHERE id = ? LIMIT 1');
+            $keep->bind_param('i', $id);
+            $keep->execute();
+            $keepRow = $keep->get_result()->fetch_assoc();
+            $keep->close();
+            $employeeCode = forceDetailUpper($keepRow['employee_code'] ?? '');
+            if ($employeeCode === '') {
+                $employeeCode = generateStaffEmployeeCode($conn);
+            }
+        } else {
+            $employeeCode = generateStaffEmployeeCode($conn);
+        }
+    } else {
+        if ($employeeCode === '') {
+            return ['ok' => false, 'error' => 'Employee code is required.'];
+        }
+    }
 
     if ($id > 0) {
         $chk = $conn->prepare('SELECT id FROM users WHERE username = ? AND id <> ? LIMIT 1');
@@ -731,6 +770,26 @@ function saveStaffUser(array $data, $id = 0)
     }
     $chk->close();
 
+    if ($employeeCode !== '') {
+        if ($id > 0) {
+            $codeChk = $conn->prepare(
+                'SELECT id FROM users WHERE employee_code = ? AND id <> ? LIMIT 1'
+            );
+            $codeChk->bind_param('si', $employeeCode, $id);
+        } else {
+            $codeChk = $conn->prepare(
+                'SELECT id FROM users WHERE employee_code = ? LIMIT 1'
+            );
+            $codeChk->bind_param('s', $employeeCode);
+        }
+        $codeChk->execute();
+        if ($codeChk->get_result()->fetch_assoc()) {
+            $codeChk->close();
+            return ['ok' => false, 'error' => 'Employee code already exists.'];
+        }
+        $codeChk->close();
+    }
+
     // Prevent reporting to self or to own subordinate (cycle)
     if ($reportsTo > 0) {
         if ($id > 0 && $reportsTo === $id) {
@@ -743,7 +802,7 @@ function saveStaffUser(array $data, $id = 0)
             }
         }
         $mgr = $conn->prepare(
-            "SELECT id FROM users WHERE id = ? AND status = 1 AND role IN ('admin', 'hr', 'employee') LIMIT 1"
+            'SELECT id FROM users WHERE id = ? AND status = 1 LIMIT 1'
         );
         $mgr->bind_param('i', $reportsTo);
         $mgr->execute();
@@ -756,21 +815,21 @@ function saveStaffUser(array $data, $id = 0)
 
     // mysqli bind_param does not send SQL NULL for type "i" reliably — use 0 sentinel then NULLIF
     $deptBind = $departmentId === null ? 0 : (int) $departmentId;
-    $roleBind = $customRoleId === null ? 0 : (int) $customRoleId;
+    $roleBind = $roleId === null ? 0 : (int) $roleId;
 
     if ($id > 0) {
         if ($password !== '') {
             $stmt = $conn->prepare(
-                'UPDATE users SET username = ?, password = ?, full_name = ?, role = ?,
-                 department_id = NULLIF(?, 0), custom_role_id = NULLIF(?, 0), reports_to = ?, status = ?
-                 WHERE id = ?'
+                'UPDATE users SET username = ?, password = ?, full_name = ?, employee_code = NULLIF(?, \'\'),
+                 department_id = NULLIF(?, 0), role_id = NULLIF(?, 0), reports_to = ?, status = ?
+                 WHERE id = ? AND (employee_id IS NULL OR employee_id = 0)'
             );
             $stmt->bind_param(
                 'ssssiiiii',
                 $username,
                 $password,
                 $fullName,
-                $role,
+                $employeeCode,
                 $deptBind,
                 $roleBind,
                 $reportsTo,
@@ -779,15 +838,15 @@ function saveStaffUser(array $data, $id = 0)
             );
         } else {
             $stmt = $conn->prepare(
-                'UPDATE users SET username = ?, full_name = ?, role = ?,
-                 department_id = NULLIF(?, 0), custom_role_id = NULLIF(?, 0), reports_to = ?, status = ?
-                 WHERE id = ?'
+                'UPDATE users SET username = ?, full_name = ?, employee_code = NULLIF(?, \'\'),
+                 department_id = NULLIF(?, 0), role_id = NULLIF(?, 0), reports_to = ?, status = ?
+                 WHERE id = ? AND (employee_id IS NULL OR employee_id = 0)'
             );
             $stmt->bind_param(
                 'sssiiiii',
                 $username,
                 $fullName,
-                $role,
+                $employeeCode,
                 $deptBind,
                 $roleBind,
                 $reportsTo,
@@ -804,15 +863,15 @@ function saveStaffUser(array $data, $id = 0)
     }
 
     $stmt = $conn->prepare(
-        'INSERT INTO users (username, password, full_name, role, department_id, custom_role_id, reports_to, status)
-         VALUES (?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?)'
+        'INSERT INTO users (username, password, full_name, employee_code, department_id, role_id, reports_to, status)
+         VALUES (?, ?, ?, NULLIF(?, \'\'), NULLIF(?, 0), NULLIF(?, 0), ?, ?)'
     );
     $stmt->bind_param(
         'ssssiiii',
         $username,
         $password,
         $fullName,
-        $role,
+        $employeeCode,
         $deptBind,
         $roleBind,
         $reportsTo,
@@ -840,11 +899,15 @@ function deleteStaffUser($id)
     if (!$user) {
         return ['ok' => false, 'error' => 'User not found.'];
     }
-    if (($user['role'] ?? '') === 'admin') {
-        // Prevent deleting last admin
+    if ((int) ($user['role_id'] ?? 0) <= 0) {
+        // Prevent deleting last admin (no role_id = full access)
         $conn = getDBConnection();
         $c = 0;
-        $res = $conn->query("SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 1");
+        $res = $conn->query(
+            "SELECT COUNT(*) AS c FROM users
+             WHERE status = 1 AND (role_id IS NULL OR role_id = 0)
+               AND (employee_id IS NULL OR employee_id = 0)"
+        );
         if ($res) {
             $c = (int) ($res->fetch_assoc()['c'] ?? 0);
         }
@@ -854,7 +917,9 @@ function deleteStaffUser($id)
     }
 
     $conn = getDBConnection();
-    $stmt = $conn->prepare('DELETE FROM users WHERE id = ? AND role IN (\'admin\', \'hr\')');
+    $stmt = $conn->prepare(
+        'DELETE FROM users WHERE id = ? AND (employee_id IS NULL OR employee_id = 0)'
+    );
     $stmt->bind_param('i', $id);
     $ok = $stmt->execute();
     $stmt->close();
@@ -876,11 +941,11 @@ function fetchEmployeesForRoleAssign($departmentId = 0)
     $conn = getDBConnection();
     $departmentId = (int) $departmentId;
     $sql = "SELECT e.id, e.employee_code, e.employee_name, e.department_id, d.name AS department_name,
-                   u.id AS portal_user_id, u.username AS portal_username, u.custom_role_id, r.name AS role_name
+                   u.id AS portal_user_id, u.username AS portal_username, u.role_id, r.name AS role_name
             FROM employees e
             LEFT JOIN departments d ON d.id = e.department_id
-            LEFT JOIN users u ON u.employee_id = e.id AND u.role = 'employee'
-            LEFT JOIN roles r ON r.id = u.custom_role_id
+            LEFT JOIN users u ON u.employee_id = e.id AND u.employee_id > 0
+            LEFT JOIN roles r ON r.id = u.role_id
             WHERE e.status = 1
               AND (e.date_of_exit IS NULL OR e.date_of_exit = '' OR e.date_of_exit = '0000-00-00' OR e.date_of_exit > CURDATE())";
     if ($departmentId > 0) {
@@ -905,15 +970,15 @@ function fetchEmployeePortalAssignments($roleId = 0)
     ensureRoleTables();
     $conn = getDBConnection();
     $roleId = (int) $roleId;
-    $sql = "SELECT u.id, u.username, u.password, u.full_name, u.custom_role_id, u.employee_id, u.department_id, u.status,
+    $sql = "SELECT u.id, u.username, u.password, u.full_name, u.role_id, u.employee_id, u.department_id, u.status,
                    r.name AS role_name, e.employee_code, e.employee_name, d.name AS department_name
             FROM users u
-            LEFT JOIN roles r ON r.id = u.custom_role_id
+            LEFT JOIN roles r ON r.id = u.role_id
             LEFT JOIN employees e ON e.id = u.employee_id
             LEFT JOIN departments d ON d.id = COALESCE(u.department_id, e.department_id)
-            WHERE u.role = 'employee'";
+            WHERE u.employee_id > 0";
     if ($roleId > 0) {
-        $sql .= ' AND u.custom_role_id = ' . $roleId;
+        $sql .= ' AND u.role_id = ' . $roleId;
     }
     $sql .= ' ORDER BY u.full_name ASC';
     $rows = [];
@@ -938,8 +1003,8 @@ function getEmployeePortalUserById($id)
         "SELECT u.*, e.employee_code, e.employee_name, e.department_id AS emp_department_id, r.name AS role_name
          FROM users u
          LEFT JOIN employees e ON e.id = u.employee_id
-         LEFT JOIN roles r ON r.id = u.custom_role_id
-         WHERE u.id = ? AND u.role = 'employee' LIMIT 1"
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE u.id = ? AND u.employee_id > 0 LIMIT 1"
     );
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -960,11 +1025,11 @@ function getEmployeePortalLoginByEmployeeId($employeeId)
     ensureRoleTables();
     $conn = getDBConnection();
     $stmt = $conn->prepare(
-        "SELECT u.id, u.username, u.password, u.full_name, u.status, u.custom_role_id, u.employee_id,
+        "SELECT u.id, u.username, u.password, u.full_name, u.status, u.role_id, u.employee_id,
                 r.name AS role_name, r.code AS role_code
          FROM users u
-         LEFT JOIN roles r ON r.id = u.custom_role_id
-         WHERE u.employee_id = ? AND u.role = 'employee'
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE u.employee_id = ? AND u.employee_id > 0
          ORDER BY u.id DESC
          LIMIT 1"
     );
@@ -996,8 +1061,8 @@ function fetchAllEmployeePortalCredentials($departmentId = 0)
                    u.status AS login_status, r.name AS role_name, r.code AS role_code
             FROM employees e
             LEFT JOIN departments d ON d.id = e.department_id
-            LEFT JOIN users u ON u.employee_id = e.id AND u.role = 'employee'
-            LEFT JOIN roles r ON r.id = u.custom_role_id
+            LEFT JOIN users u ON u.employee_id = e.id AND u.employee_id > 0
+            LEFT JOIN roles r ON r.id = u.role_id
             WHERE e.status = 1
               AND (e.date_of_exit IS NULL OR e.date_of_exit = '' OR e.date_of_exit = '0000-00-00' OR e.date_of_exit > CURDATE())";
     if ($departmentId > 0) {
@@ -1016,7 +1081,7 @@ function fetchAllEmployeePortalCredentials($departmentId = 0)
 
 /**
  * Create / update employee portal login + assign custom role.
- * $data: employee_id, custom_role_id, username, password, status, user_id (optional for edit)
+ * $data: employee_id, role_id, username, password, status, user_id (optional for edit)
  */
 function assignEmployeePortalLogin(array $data)
 {
@@ -1027,7 +1092,7 @@ function assignEmployeePortalLogin(array $data)
 
     $userId = (int) ($data['user_id'] ?? 0);
     $employeeId = (int) ($data['employee_id'] ?? 0);
-    $customRoleId = (int) ($data['custom_role_id'] ?? 0);
+    $roleId = (int) ($data['role_id'] ?? 0);
     $username = forceDetailUpper($data['username'] ?? '');
     $password = (string) ($data['password'] ?? '');
     $status = isset($data['status']) ? ((int) $data['status'] ? 1 : 0) : 1;
@@ -1035,7 +1100,7 @@ function assignEmployeePortalLogin(array $data)
     if ($employeeId <= 0) {
         return ['ok' => false, 'error' => 'Select an employee.'];
     }
-    if ($customRoleId <= 0 || !getRoleById($customRoleId)) {
+    if ($roleId <= 0 || !getRoleById($roleId)) {
         return ['ok' => false, 'error' => 'Select a valid custom role.'];
     }
     if ($username === '') {
@@ -1055,7 +1120,7 @@ function assignEmployeePortalLogin(array $data)
     // Resolve existing portal login for this employee FIRST (update path)
     if ($userId <= 0) {
         $find = $conn->prepare(
-            "SELECT id FROM users WHERE employee_id = ? AND role = 'employee' LIMIT 1"
+            "SELECT id FROM users WHERE employee_id = ? AND employee_id > 0 LIMIT 1"
         );
         $find->bind_param('i', $employeeId);
         $find->execute();
@@ -1067,7 +1132,7 @@ function assignEmployeePortalLogin(array $data)
     } else {
         // Ensure edit target is this employee's portal user
         $chkOwn = $conn->prepare(
-            "SELECT id, employee_id FROM users WHERE id = ? AND role = 'employee' LIMIT 1"
+            "SELECT id, employee_id FROM users WHERE id = ? AND employee_id > 0 LIMIT 1"
         );
         $chkOwn->bind_param('i', $userId);
         $chkOwn->execute();
@@ -1083,7 +1148,7 @@ function assignEmployeePortalLogin(array $data)
 
     // If username already exists on another row belonging to SAME employee, use that row
     $uChk = $conn->prepare(
-        "SELECT id, employee_id, role FROM users WHERE username = ? LIMIT 1"
+        'SELECT id, employee_id FROM users WHERE username = ? LIMIT 1'
     );
     $uChk->bind_param('s', $username);
     $uChk->execute();
@@ -1092,10 +1157,9 @@ function assignEmployeePortalLogin(array $data)
     if ($uRow) {
         $uRowId = (int) $uRow['id'];
         $uEmpId = (int) ($uRow['employee_id'] ?? 0);
-        $uRole = (string) ($uRow['role'] ?? '');
         if ($userId > 0 && $uRowId === $userId) {
             // same record — OK
-        } elseif ($uRole === 'employee' && $uEmpId === $employeeId) {
+        } elseif ($uEmpId > 0 && $uEmpId === $employeeId) {
             $userId = $uRowId;
         } else {
             return ['ok' => false, 'error' => 'Username already exists.'];
@@ -1105,7 +1169,7 @@ function assignEmployeePortalLogin(array $data)
     // Another portal login for same employee with different id?
     if ($userId > 0) {
         $dup = $conn->prepare(
-            "SELECT id FROM users WHERE employee_id = ? AND role = 'employee' AND id <> ? LIMIT 1"
+            "SELECT id FROM users WHERE employee_id = ? AND employee_id > 0 AND id <> ? LIMIT 1"
         );
         $dup->bind_param('ii', $employeeId, $userId);
         $dup->execute();
@@ -1119,9 +1183,9 @@ function assignEmployeePortalLogin(array $data)
     if ($userId > 0) {
         if ($password !== '') {
             $stmt = $conn->prepare(
-                "UPDATE users SET username = ?, password = ?, full_name = ?, role = 'employee',
-                 department_id = NULLIF(?, 0), custom_role_id = ?, employee_id = ?, status = ?
-                 WHERE id = ? AND role = 'employee'"
+                'UPDATE users SET username = ?, password = ?, full_name = ?,
+                 department_id = NULLIF(?, 0), role_id = ?, employee_id = ?, status = ?
+                 WHERE id = ? AND employee_id > 0'
             );
             $stmt->bind_param(
                 'sssiiiii',
@@ -1129,23 +1193,23 @@ function assignEmployeePortalLogin(array $data)
                 $password,
                 $fullName,
                 $deptBind,
-                $customRoleId,
+                $roleId,
                 $employeeId,
                 $status,
                 $userId
             );
         } else {
             $stmt = $conn->prepare(
-                "UPDATE users SET username = ?, full_name = ?, role = 'employee',
-                 department_id = NULLIF(?, 0), custom_role_id = ?, employee_id = ?, status = ?
-                 WHERE id = ? AND role = 'employee'"
+                'UPDATE users SET username = ?, full_name = ?,
+                 department_id = NULLIF(?, 0), role_id = ?, employee_id = ?, status = ?
+                 WHERE id = ? AND employee_id > 0'
             );
             $stmt->bind_param(
                 'ssiiiii',
                 $username,
                 $fullName,
                 $deptBind,
-                $customRoleId,
+                $roleId,
                 $employeeId,
                 $status,
                 $userId
@@ -1156,7 +1220,7 @@ function assignEmployeePortalLogin(array $data)
         if (!$ok) {
             return ['ok' => false, 'error' => 'Could not update employee login.'];
         }
-        syncDepartmentHeadFromRoleAssignment($employeeId, $customRoleId);
+        syncDepartmentHeadFromRoleAssignment($employeeId, $roleId);
         return ['ok' => true, 'id' => $userId, 'updated' => true];
     }
 
@@ -1165,8 +1229,8 @@ function assignEmployeePortalLogin(array $data)
     }
 
     $stmt = $conn->prepare(
-        "INSERT INTO users (username, password, full_name, role, department_id, custom_role_id, employee_id, status)
-         VALUES (?, ?, ?, 'employee', NULLIF(?, 0), ?, ?, ?)"
+        'INSERT INTO users (username, password, full_name, department_id, role_id, employee_id, status)
+         VALUES (?, ?, ?, NULLIF(?, 0), ?, ?, ?)'
     );
     $stmt->bind_param(
         'sssiiii',
@@ -1174,7 +1238,7 @@ function assignEmployeePortalLogin(array $data)
         $password,
         $fullName,
         $deptBind,
-        $customRoleId,
+        $roleId,
         $employeeId,
         $status
     );
@@ -1184,7 +1248,7 @@ function assignEmployeePortalLogin(array $data)
     if (!$ok) {
         return ['ok' => false, 'error' => 'Could not create employee login.'];
     }
-    syncDepartmentHeadFromRoleAssignment($employeeId, $customRoleId);
+    syncDepartmentHeadFromRoleAssignment($employeeId, $roleId);
     return ['ok' => true, 'id' => $newId, 'updated' => false];
 }
 
@@ -1192,10 +1256,10 @@ function assignEmployeePortalLogin(array $data)
  * When Dept Head role is assigned, register employee as that department's head (matrix).
  * When role is changed away from Dept Head, clear their headed departments.
  */
-function syncDepartmentHeadFromRoleAssignment($employeeId, $customRoleId)
+function syncDepartmentHeadFromRoleAssignment($employeeId, $roleId)
 {
     $employeeId = (int) $employeeId;
-    $customRoleId = (int) $customRoleId;
+    $roleId = (int) $roleId;
     if ($employeeId <= 0) {
         return;
     }
@@ -1206,7 +1270,7 @@ function syncDepartmentHeadFromRoleAssignment($employeeId, $customRoleId)
         require_once __DIR__ . '/employee_helper.php';
     }
 
-    $code = strtoupper((string) (getRoleCodeById($customRoleId) ?? ''));
+    $code = strtoupper((string) (getRoleCodeById($roleId) ?? ''));
     if ($code !== 'DEPT_HEAD') {
         foreach (getHeadedDepartmentIds($employeeId) as $deptId) {
             clearDepartmentHead((int) $deptId);
@@ -1242,7 +1306,7 @@ function revokeEmployeePortalLogin($userId)
         }
     }
     $conn = getDBConnection();
-    $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'employee'");
+    $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND employee_id > 0");
     $stmt->bind_param('i', $userId);
     $ok = $stmt->execute();
     $stmt->close();

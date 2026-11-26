@@ -30,30 +30,119 @@ function requireLogin()
         header('Location: ' . app_url('index.php'));
         exit;
     }
+    syncSessionAccessFromDb();
 }
 
 /**
- * Check if current user is Admin
+ * Derive login type from role_id / employee_id (users.role column removed).
+ * admin = no role_id | hr = has role_id | employee = linked employee_id
+ */
+function deriveUserType(array $user)
+{
+    if ((int) ($user['employee_id'] ?? 0) > 0) {
+        return 'employee';
+    }
+    if ((int) ($user['role_id'] ?? 0) > 0) {
+        return 'hr';
+    }
+    return 'admin';
+}
+
+/**
+ * Keep session role_id / permissions in sync with DB (avoids stale Admin access).
+ */
+function syncSessionAccessFromDb()
+{
+    static $synced = false;
+    if ($synced || !isLoggedIn()) {
+        return;
+    }
+    $synced = true;
+
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0) {
+        return;
+    }
+
+    require_once __DIR__ . '/../config/database.php';
+    $conn = getDBConnection();
+    $stmt = $conn->prepare(
+        'SELECT id, role_id, employee_id, department_id FROM users WHERE id = ? AND status = 1 LIMIT 1'
+    );
+    $stmt->bind_param('i', $uid);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$user) {
+        return;
+    }
+
+    $roleId = (int) ($user['role_id'] ?? 0);
+    $empId = (int) ($user['employee_id'] ?? 0);
+    $_SESSION['role_id'] = $roleId;
+    $_SESSION['employee_id'] = $empId;
+    $_SESSION['department_id'] = $user['department_id'] ?? null;
+    $_SESSION['role'] = deriveUserType($user);
+
+    $roleName = '';
+    $roleCode = '';
+    if ($roleId > 0) {
+        $rs = $conn->prepare('SELECT name, code FROM roles WHERE id = ? AND status = 1 LIMIT 1');
+        $rs->bind_param('i', $roleId);
+        $rs->execute();
+        $rr = $rs->get_result()->fetch_assoc();
+        $rs->close();
+        $roleName = (string) ($rr['name'] ?? '');
+        $roleCode = strtoupper(trim((string) ($rr['code'] ?? '')));
+    } elseif ($_SESSION['role'] === 'admin') {
+        $roleName = 'Admin';
+        $roleCode = 'ADMIN';
+    }
+    $_SESSION['role_name'] = $roleName;
+    $_SESSION['role_code'] = $roleCode;
+
+    if ($roleId > 0) {
+        if (!function_exists('loadUserPermissionsIntoSession')) {
+            require_once __DIR__ . '/permission_helper.php';
+        }
+        loadUserPermissionsIntoSession($roleId, true);
+    } else {
+        $_SESSION['permissions'] = [];
+        $_SESSION['permissions_role_id'] = 0;
+    }
+}
+
+/**
+ * Check if current user is Admin (full access — no CRM role_id)
  */
 function isAdmin()
 {
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+    if (!isLoggedIn()) {
+        return false;
+    }
+    return (int) ($_SESSION['role_id'] ?? 0) <= 0 && (int) ($_SESSION['employee_id'] ?? 0) <= 0;
 }
 
 /**
- * Check if current user is HR
+ * Check if current user is HR / staff with CRM role
  */
 function isHR()
 {
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'hr';
+    if (!isLoggedIn()) {
+        return false;
+    }
+    return (int) ($_SESSION['role_id'] ?? 0) > 0 && (int) ($_SESSION['employee_id'] ?? 0) <= 0;
 }
 
 /**
- * Employee portal user (custom role assigned)
+ * Employee portal user (linked employee_id)
  */
 function isEmployee()
 {
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'employee';
+    if (!isLoggedIn()) {
+        return false;
+    }
+    return (int) ($_SESSION['employee_id'] ?? 0) > 0;
 }
 
 /**
@@ -111,20 +200,20 @@ function getUserName()
  */
 function getUserRoleLabel()
 {
-    if (!isset($_SESSION['role'])) {
-        return '';
+    $name = trim((string) ($_SESSION['role_name'] ?? ''));
+    if ($name !== '') {
+        return strtoupper($name);
     }
-    if ($_SESSION['role'] === 'admin') {
+    if (isAdmin()) {
         return 'ADMINISTRATOR';
     }
-    if ($_SESSION['role'] === 'hr') {
-        return 'HR MANAGER';
+    if (isEmployee()) {
+        return 'EMPLOYEE';
     }
-    if ($_SESSION['role'] === 'employee') {
-        $custom = trim((string) ($_SESSION['custom_role_name'] ?? ''));
-        return $custom !== '' ? strtoupper($custom) : 'EMPLOYEE';
+    if (isHR()) {
+        return 'STAFF';
     }
-    return strtoupper((string) $_SESSION['role']);
+    return '';
 }
 
 /**

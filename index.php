@@ -22,7 +22,6 @@ if (isLoggedIn()) {
 }
 
 $error = '';
-$dbRoles = ['admin', 'hr', 'employee'];
 $username = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -41,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ensureRoleTables();
         $conn = getDBConnection();
         $stmt = $conn->prepare(
-            "SELECT id, username, password, full_name, role, department_id, custom_role_id, employee_id, status
+            "SELECT id, username, password, full_name, department_id, role_id, employee_id, status
              FROM users WHERE username = ? AND status = 1 LIMIT 1"
         );
         $stmt->bind_param('s', $usernameKey);
@@ -52,9 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $roleName = '';
         $roleCode = '';
-        if ($user && !empty($user['custom_role_id'])) {
+        if ($user && !empty($user['role_id'])) {
             $rs = $conn->prepare('SELECT name, code FROM roles WHERE id = ? AND status = 1 LIMIT 1');
-            $rid = (int) $user['custom_role_id'];
+            $rid = (int) $user['role_id'];
             $rs->bind_param('i', $rid);
             $rs->execute();
             $rr = $rs->get_result()->fetch_assoc();
@@ -63,27 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roleCode = strtoupper(trim((string) ($rr['code'] ?? '')));
         }
 
-        $userRole = strtolower((string) ($user['role'] ?? ''));
-
         if (!$user || $user['password'] !== $password) {
             $error = 'Invalid username or password.';
             $username = $usernameInput;
-        } elseif (!in_array($userRole, $dbRoles, true)) {
-            $error = 'This account cannot sign in here.';
-            $username = $usernameInput;
         } else {
+            $userType = deriveUserType($user);
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['full_name'] = $user['full_name'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION['role'] = $userType;
             $_SESSION['department_id'] = $user['department_id'];
             $_SESSION['employee_id'] = !empty($user['employee_id']) ? (int) $user['employee_id'] : 0;
-            $_SESSION['custom_role_id'] = !empty($user['custom_role_id']) ? (int) $user['custom_role_id'] : 0;
-            $_SESSION['custom_role_name'] = $roleName;
-            $_SESSION['role_code'] = $roleCode;
+            $_SESSION['role_id'] = !empty($user['role_id']) ? (int) $user['role_id'] : 0;
+            $_SESSION['role_name'] = $roleName !== '' ? $roleName : ($userType === 'admin' ? 'Admin' : '');
+            $_SESSION['role_code'] = $roleCode !== '' ? $roleCode : ($userType === 'admin' ? 'ADMIN' : '');
             unset($_SESSION['permissions'], $_SESSION['permissions_role_id']);
-            if ($_SESSION['custom_role_id'] > 0) {
-                loadUserPermissionsIntoSession($_SESSION['custom_role_id'], true);
+            if ($_SESSION['role_id'] > 0) {
+                loadUserPermissionsIntoSession($_SESSION['role_id'], true);
             } else {
                 $_SESSION['permissions'] = [];
                 $_SESSION['permissions_role_id'] = 0;
@@ -119,31 +114,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-bg-grid"></div>
     <div class="login-bg-sweep"></div>
 
-    <!-- IT company watermarks -->
-    <!-- Network / cloud nodes -->
-    <svg class="bio-wm bio-wm-1" viewBox="0 0 120 120" aria-hidden="true">
-        <circle cx="28" cy="30" r="9" fill="#2466FB"/>
-        <circle cx="92" cy="28" r="9" fill="#1A4FD6"/>
-        <circle cx="60" cy="70" r="10" fill="#0F172A"/>
-        <circle cx="30" cy="95" r="7" fill="#4B8BFF"/>
-        <circle cx="95" cy="88" r="7" fill="#2466FB"/>
-        <line x1="28" y1="30" x2="92" y2="28" stroke="#2466FB" stroke-width="3" opacity="0.7"/>
-        <line x1="28" y1="30" x2="60" y2="70" stroke="#1A4FD6" stroke-width="3" opacity="0.7"/>
-        <line x1="92" y1="28" x2="60" y2="70" stroke="#2466FB" stroke-width="3" opacity="0.7"/>
-        <line x1="60" y1="70" x2="30" y2="95" stroke="#4B8BFF" stroke-width="3" opacity="0.7"/>
-        <line x1="60" y1="70" x2="95" y2="88" stroke="#2466FB" stroke-width="3" opacity="0.7"/>
-    </svg>
     <!-- Laptop -->
     <svg class="bio-wm bio-wm-2" viewBox="0 0 96 72" aria-hidden="true">
-        <rect x="14" y="8" width="68" height="44" rx="4" fill="none" stroke="#2466FB" stroke-width="3"/>
-        <rect x="22" y="16" width="52" height="28" rx="2" fill="#2466FB" opacity="0.2"/>
-        <path d="M8 56 h80 l-6 8 H14 Z" fill="#2466FB" opacity="0.55"/>
-        <rect x="42" y="48" width="12" height="4" rx="1" fill="#1A4FD6"/>
+        <rect x="14" y="8" width="68" height="44" rx="4" fill="none" stroke="#e08a0a" stroke-width="3"/>
+        <rect x="22" y="16" width="52" height="28" rx="2" fill="#e08a0a" opacity="0.2"/>
+        <path d="M8 56 h80 l-6 8 H14 Z" fill="#e08a0a" opacity="0.55"/>
+        <rect x="42" y="48" width="12" height="4" rx="1" fill="#c77708"/>
     </svg>
     <!-- Code brackets -->
     <svg class="bio-wm bio-wm-3" viewBox="0 0 64 64" aria-hidden="true">
-        <path d="M22 12 L8 32 L22 52" fill="none" stroke="#2466FB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M42 12 L56 32 L42 52" fill="none" stroke="#1A4FD6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M22 12 L8 32 L22 52" fill="none" stroke="#e08a0a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M42 12 L56 32 L42 52" fill="none" stroke="#c77708" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M36 14 L28 50" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
     </svg>
 

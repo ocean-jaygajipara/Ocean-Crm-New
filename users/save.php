@@ -19,10 +19,10 @@ $id = (int) ($_POST['id'] ?? 0);
 $data = [
     'username' => $_POST['username'] ?? '',
     'full_name' => $_POST['full_name'] ?? '',
+    'employee_code' => $_POST['employee_code'] ?? '',
     'password' => $_POST['password'] ?? '',
-    'role' => $_POST['role'] ?? 'hr',
     'department_id' => $_POST['department_id'] ?? 0,
-    'custom_role_id' => $_POST['custom_role_id'] ?? 0,
+    'role_id' => (int) ($_POST['role_id'] ?? 0),
     'reports_to' => $_POST['reports_to'] ?? 0,
     'status' => $_POST['status'] ?? 1,
 ];

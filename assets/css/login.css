@@ -1,19 +1,19 @@
 /* =====================================================
    Ocean CRM — Login
-   Logo theme (Ocean blue / ink / white) · Admin + Employee
+   Brand amber #e08a0a / ink / white · Admin + Employee
    ===================================================== */
 
 :root {
-    --brand: #2466FB;
-    --brand-deep: #1A4FD6;
-    --brand-soft: #E8F0FF;
-    --brand-glow: rgba(36, 102, 251, 0.35);
+    --brand: #e08a0a;
+    --brand-deep: #c77708;
+    --brand-soft: #FFF6E8;
+    --brand-glow: rgba(224, 138, 10, 0.35);
     --brand-accent: #0F172A;
     --ink: #1f2937;
     --muted: #6b7280;
     --line: #e2e8f0;
     --surface: rgba(255, 255, 255, 0.92);
-    --page: #EEF3FF;
+    --page: #F7F8FA;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,7 +39,7 @@ html, body { height: 100%; }
     overflow-x: hidden;
     overflow-y: visible;
     background:
-        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(36, 102, 251, 0.18), transparent 55%),
+        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(224, 138, 10, 0.18), transparent 55%),
         radial-gradient(ellipse 50% 40% at 100% 100%, rgba(15, 23, 42, 0.1), transparent 50%),
         linear-gradient(165deg, #F7F9FF 0%, #EEF3FF 45%, #E8EEFF 100%);
 }
@@ -57,7 +57,7 @@ html, body { height: 100%; }
     height: 420px;
     top: -8%;
     left: -6%;
-    background: rgba(36, 102, 251, 0.26);
+    background: rgba(224, 138, 10, 0.26);
 }
 
 .login-bg-glow-b {
@@ -96,7 +96,7 @@ html, body { height: 100%; }
     height: 320px;
     top: 38%;
     left: 58%;
-    background: rgba(36, 102, 251, 0.22);
+    background: rgba(224, 138, 10, 0.22);
     animation: bgGlowOrbit 18s ease-in-out infinite;
 }
 
@@ -112,7 +112,7 @@ html, body { height: 100%; }
     left: -60%;
     width: 50%;
     height: 200%;
-    background: linear-gradient(90deg, transparent, rgba(36, 102, 251, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, rgba(224, 138, 10, 0.06), transparent);
     transform: rotate(18deg);
     animation: bgSweep 9s ease-in-out infinite;
     pointer-events: none;
@@ -154,7 +154,7 @@ html, body { height: 100%; }
     padding: 0 8px 8px;
     background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.55) 35%, rgba(230, 244, 245, 0.92) 100%);
     backdrop-filter: blur(8px);
-    border-top: 1px solid rgba(36, 102, 251, 0.12);
+    border-top: 1px solid rgba(224, 138, 10, 0.12);
     box-shadow: 0 -12px 40px rgba(0, 64, 74, 0.06);
 }
 
@@ -173,7 +173,7 @@ html, body { height: 100%; }
     width: 64px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(36, 102, 251, 0.28);
+    background: rgba(224, 138, 10, 0.28);
     filter: blur(10px);
     animation: bioGlowPulse 2.4s ease-in-out infinite;
 }
@@ -186,7 +186,7 @@ html, body { height: 100%; }
     background: #1e293b;
     border-radius: 6px 6px 2px 2px;
     border: 2px solid #334155;
-    box-shadow: 0 0 16px rgba(36, 102, 251, 0.35);
+    box-shadow: 0 0 16px rgba(224, 138, 10, 0.35);
 }
 .bio-monitor-screen {
     display: grid;
@@ -293,7 +293,7 @@ html, body { height: 100%; }
     padding: 6px 8px 4px;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(36, 102, 251, 0.12);
+    border: 1px solid rgba(224, 138, 10, 0.12);
     box-shadow: 0 4px 14px rgba(0, 64, 74, 0.08);
 }
 .bio-bi-ico {
@@ -305,7 +305,7 @@ html, body { height: 100%; }
     flex-shrink: 0;
     border-radius: 12px;
     background: linear-gradient(160deg, #fff, var(--brand-soft));
-    border: 1.5px solid rgba(36, 102, 251, 0.28);
+    border: 1.5px solid rgba(224, 138, 10, 0.28);
     color: var(--brand);
     font-size: 18px;
     line-height: 1;
@@ -363,9 +363,9 @@ html, body { height: 100%; }
 }
 .bio-bi-6 .bio-bi-ico,
 .bio-bi-7 .bio-bi-ico {
-    background: linear-gradient(160deg, #fff, #E8F0FF);
+    background: linear-gradient(160deg, #fff, #FFF6E8);
     color: var(--brand);
-    border-color: rgba(36, 102, 251, 0.35);
+    border-color: rgba(224, 138, 10, 0.35);
 }
 
 .bio-gate {
@@ -384,7 +384,7 @@ html, body { height: 100%; }
 .bio-gate-arch {
     width: 72px;
     height: 48px;
-    border: 3px solid #2466FB;
+    border: 3px solid #e08a0a;
     border-bottom: none;
     border-radius: 40px 40px 0 0;
     display: grid;
@@ -394,7 +394,7 @@ html, body { height: 100%; }
     letter-spacing: 0.14em;
     color: var(--brand);
     background: rgba(230, 244, 245, 0.65);
-    box-shadow: 0 0 18px rgba(36, 102, 251, 0.25);
+    box-shadow: 0 0 18px rgba(224, 138, 10, 0.25);
 }
 .bio-gate-badge {
     font-size: 9px;
@@ -449,7 +449,7 @@ html, body { height: 100%; }
     overflow: visible;
     background:
         linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.35) 28%, rgba(232, 242, 244, 0.95) 100%);
-    border-top: 1px solid rgba(36, 102, 251, 0.1);
+    border-top: 1px solid rgba(224, 138, 10, 0.1);
 }
 .bio-belt-products .bio-belt {
     margin-bottom: 8px;
@@ -488,10 +488,10 @@ html, body { height: 100%; }
     display: grid;
     place-items: center;
     border-radius: 14px;
-    background: linear-gradient(145deg, #2466FB, #1A4FD6);
+    background: linear-gradient(145deg, #e08a0a, #c77708);
     color: #fff;
     font-size: 18px;
-    box-shadow: 0 8px 20px rgba(36, 102, 251, 0.35);
+    box-shadow: 0 8px 20px rgba(224, 138, 10, 0.35);
 }
 .bio-lane-lab strong {
     font-size: 10px;
@@ -511,7 +511,7 @@ html, body { height: 100%; }
     background: var(--brand);
     border-radius: 999px;
     padding: 4px 12px;
-    box-shadow: 0 4px 12px rgba(36, 102, 251, 0.25);
+    box-shadow: 0 4px 12px rgba(224, 138, 10, 0.25);
 }
 .bio-lane-qc span:last-child {
     background: #059669;
@@ -528,7 +528,7 @@ html, body { height: 100%; }
 }
 .bio-belt-products .bio-belt-item {
     background: #fff;
-    border: 1px solid rgba(36, 102, 251, 0.16);
+    border: 1px solid rgba(224, 138, 10, 0.16);
     box-shadow: 0 8px 18px rgba(0, 64, 74, 0.12);
     min-width: 92px;
     padding: 8px 10px 6px;
@@ -537,14 +537,14 @@ html, body { height: 100%; }
     width: 42px;
     height: 42px;
     border-radius: 12px;
-    background: linear-gradient(160deg, #ffffff, #E8F0FF);
-    border: 1.5px solid rgba(36, 102, 251, 0.35);
+    background: linear-gradient(160deg, #ffffff, #FFF6E8);
+    border: 1.5px solid rgba(224, 138, 10, 0.35);
     color: var(--brand);
 }
 .bio-belt-products .bio-bi-ico {
     color: var(--brand) !important;
     background: #fff !important;
-    border-color: rgba(36, 102, 251, 0.4) !important;
+    border-color: rgba(224, 138, 10, 0.4) !important;
 }
 .bio-belt-products .bio-bi-ico svg {
     width: 20px;
@@ -603,7 +603,7 @@ html, body { height: 100%; }
         0 28px 60px rgba(0, 64, 74, 0.12),
         0 8px 24px rgba(15, 23, 42, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(36, 102, 251, 0.14);
+    border: 1px solid rgba(224, 138, 10, 0.14);
     overflow: hidden;
 }
 
@@ -614,7 +614,7 @@ html, body { height: 100%; }
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, var(--brand) 0%, #4B8BFF 45%, var(--brand-accent) 100%);
+    background: linear-gradient(90deg, var(--brand) 0%, #f0a53a 45%, var(--brand-accent) 100%);
     z-index: 2;
     pointer-events: none;
 }
@@ -627,7 +627,7 @@ html, body { height: 100%; }
     width: 220px;
     height: 220px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(36, 102, 251, 0.1), transparent 70%);
+    background: radial-gradient(circle, rgba(224, 138, 10, 0.1), transparent 70%);
     pointer-events: none;
     z-index: 0;
 }
@@ -648,7 +648,7 @@ html, body { height: 100%; }
     border: 0;
     border-radius: 999px;
     padding: 6px 12px;
-    box-shadow: 0 6px 16px rgba(36, 102, 251, 0.3);
+    box-shadow: 0 6px 16px rgba(224, 138, 10, 0.3);
     animation: badgeIn 0.7s ease 0.45s both;
 }
 
@@ -928,7 +928,7 @@ html, body { height: 100%; }
 
 .login-role input:checked + .login-role-box {
     border-color: var(--brand);
-    background: linear-gradient(180deg, #F0F5FF, #fff);
+    background: linear-gradient(180deg, #FFF9F0, #fff);
     box-shadow: 0 8px 22px var(--brand-glow);
     transform: translateY(-2px);
 }
@@ -946,7 +946,7 @@ html, body { height: 100%; }
 }
 
 .login-role:hover .login-role-box {
-    border-color: rgba(36, 102, 251, 0.45);
+    border-color: rgba(224, 138, 10, 0.45);
 }
 
 .login-input-wrap {
@@ -982,7 +982,7 @@ html, body { height: 100%; }
 .login-input-wrap:focus-within input {
     border-color: var(--brand);
     background: #fff;
-    box-shadow: 0 0 0 4px rgba(36, 102, 251, 0.12);
+    box-shadow: 0 0 0 4px rgba(224, 138, 10, 0.12);
     transform: translateY(-1px);
 }
 
@@ -991,7 +991,7 @@ html, body { height: 100%; }
 .login-btn {
     margin-top: 4px;
     width: 100%;
-    border: 0;
+    border: 1px solid transparent;
     border-radius: 12px;
     padding: 15px 18px;
     cursor: pointer;
@@ -999,8 +999,8 @@ html, body { height: 100%; }
     font: 700 13px/1 "Outfit", sans-serif;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    background: linear-gradient(135deg, #4B8BFF 0%, var(--brand) 45%, var(--brand-deep) 100%);
-    box-shadow: 0 14px 30px var(--brand-glow);
+    background: #e08a0a;
+    box-shadow: 0 8px 18px rgba(224, 138, 10, .35);
     position: relative;
     overflow: hidden;
     opacity: 1;
@@ -1019,7 +1019,9 @@ html, body { height: 100%; }
 
 .login-btn:hover {
     filter: brightness(1.05);
-    box-shadow: 0 16px 36px rgba(36, 102, 251, 0.42);
+    border-color: transparent;
+    background: #c77708;
+    box-shadow: 0 12px 24px rgba(224, 138, 10, .45);
 }
 
 .login-btn:hover::before {
@@ -1028,11 +1030,11 @@ html, body { height: 100%; }
 
 .login-btn:active {
     transform: scale(0.98);
-    box-shadow: 0 6px 16px rgba(36, 102, 251, 0.35);
+    box-shadow: 0 6px 14px rgba(224, 138, 10, .35);
 }
 
 .login-btn:focus-visible {
-    outline: 3px solid rgba(36, 102, 251, 0.35);
+    outline: 3px solid rgba(224, 138, 10, 0.4);
     outline-offset: 2px;
 }
 
@@ -1049,15 +1051,15 @@ a.login-btn {
 .login-btn-secondary {
     background: #fff !important;
     color: var(--brand) !important;
-    border: 1.5px solid rgba(36, 102, 251, 0.35) !important;
-    box-shadow: 0 8px 18px rgba(36, 102, 251, 0.08) !important;
+    border: 1.5px solid rgba(224, 138, 10, 0.35) !important;
+    box-shadow: 0 8px 18px rgba(224, 138, 10, 0.08) !important;
 }
 
 .login-btn-secondary:hover {
     filter: none;
     background: var(--brand-soft) !important;
     border-color: var(--brand) !important;
-    box-shadow: 0 10px 22px rgba(36, 102, 251, 0.14) !important;
+    box-shadow: 0 10px 22px rgba(224, 138, 10, 0.14) !important;
 }
 
 .login-btn-secondary .login-btn-text {
@@ -1183,7 +1185,7 @@ a.login-btn {
 }
 
 .login-card-foot .foot-brand:hover {
-    color: #2466FB;
+    color: #e08a0a;
     text-decoration: underline;
 }
 

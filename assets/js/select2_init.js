@@ -100,11 +100,26 @@
         if (!data) return;
         e.preventDefault();
         this.blur();
-        if (data.isOpen && data.isOpen()) {
-            focusOpenSearch();
-        } else if (data.$selection && data.$selection.length) {
-            data.$selection.trigger('focus');
-        }
+        // Do not auto-open Select2 — only move focus away from native <select>
+        // so the OS/native dropdown never appears.
+    });
+
+    // Label click must NOT open native OS dropdown (or Select2)
+    $(document).on('mousedown', 'label[for]', function (e) {
+        var id = this.getAttribute('for');
+        if (!id) return;
+        var el = document.getElementById(id);
+        if (!el || el.tagName !== 'SELECT') return;
+        if (!$(el).data('select2')) return;
+        e.preventDefault();
+    });
+
+    // Block native picker if anything still focuses/clicks the hidden select
+    $(document).on('mousedown click', 'select.select2-hidden-accessible', function (e) {
+        if (!$(this).data('select2')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.blur();
     });
 
     window.CrmSelect2 = {

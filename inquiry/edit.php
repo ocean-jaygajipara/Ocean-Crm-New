@@ -129,7 +129,7 @@ foreach (getActiveMasterRows('areas', 'name ASC') as $r) {
 
     <div class="list-header">
         <div class="master-list-title">
-            <div class="master-list-icon" style="background:#2466FB;">
+            <div class="master-list-icon" style="background:#e08a0a;">
                 <i class="fa-solid fa-clipboard-question"></i>
             </div>
             <div>
@@ -146,6 +146,7 @@ foreach (getActiveMasterRows('areas', 'name ASC') as $r) {
 <?php
 $extraJs = [
     'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
+    'https://cdn.jsdelivr.net/npm/autosize@4.0.2/dist/autosize.min.js',
     'assets/js/inquiry_form.js',
 ];
 require_once __DIR__ . '/../includes/footer.php';

@@ -52,7 +52,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <div class="list-header">
         <div class="master-list-title">
-            <div class="master-list-icon" style="background:#2466FB;">
+            <div class="master-list-icon" style="background:#e08a0a;">
                 <i class="fa-solid fa-database"></i>
             </div>
             <div>

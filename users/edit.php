@@ -6,10 +6,12 @@
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/settings.php';
 require_once __DIR__ . '/../includes/permission_helper.php';
 
 requireAdmin();
 ensureRoleTables();
+$employeeCodeAuto = isEmployeeCodeAuto();
 
 $id = (int) ($_GET['id'] ?? 0);
 $row = $id > 0 ? getStaffUserById($id) : null;
@@ -17,8 +19,6 @@ if ($id > 0 && !$row) {
     header('Location: ' . app_url('users/index.php?msg=error&err=' . rawurlencode('User not found.')));
     exit;
 }
-
-$roles = fetchRoles(true);
 
 $formError = '';
 $formData = [];
@@ -38,22 +38,17 @@ $val = static function ($key, $fallback = '') use ($formData, $row) {
     return (string) $fallback;
 };
 
-$loginRole = array_key_exists('role', $formData)
-    ? (string) $formData['role']
-    : ($row['role'] ?? 'hr');
 $statusVal = array_key_exists('status', $formData)
     ? (int) $formData['status']
     : ($row ? (int) $row['status'] : 1);
-$customRoleId = array_key_exists('custom_role_id', $formData)
-    ? (int) $formData['custom_role_id']
-    : (int) ($row['custom_role_id'] ?? 0);
-$deptId = array_key_exists('department_id', $formData)
-    ? (int) $formData['department_id']
-    : (int) ($row['department_id'] ?? 0);
+$roleId = array_key_exists('role_id', $formData)
+    ? (int) $formData['role_id']
+    : (int) ($row['role_id'] ?? 0);
 $reportsToId = array_key_exists('reports_to', $formData)
     ? (int) $formData['reports_to']
     : (int) ($row['reports_to'] ?? 0);
 $reportsToOptions = getReportsToOptions($id);
+$roleOptions = fetchRoles(true);
 
 $pageTitle = $row ? 'Edit Staff User' : 'Add Staff User';
 $useSidebar = true;
@@ -79,7 +74,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div>
                     <h1><?php echo $row ? 'Edit Staff User' : 'Add Staff User'; ?></h1>
-                    <p>Login role, access role, and team hierarchy (Reports To)</p>
+                    <p>Role access + team hierarchy (Reports To)</p>
                 </div>
             </div>
         </div>
@@ -98,6 +93,25 @@ require_once __DIR__ . '/../includes/header.php';
                            value="<?php echo htmlspecialchars($val('full_name')); ?>">
                 </div>
                 <div class="form-group">
+                    <label for="employeeCode">
+                        Employee Code <?php if (!$employeeCodeAuto): ?><span class="req">*</span><?php endif; ?>
+                        <?php if ($employeeCodeAuto): ?>
+                            <small class="form-help" style="display:inline;margin-left:6px;">Auto generated</small>
+                        <?php else: ?>
+                            <small class="form-help" style="display:inline;margin-left:6px;">Manual entry</small>
+                        <?php endif; ?>
+                    </label>
+                    <?php if ($employeeCodeAuto): ?>
+                        <input type="text" id="employeeCode" class="form-control is-readonly-soft"
+                               value="<?php echo htmlspecialchars($val('employee_code')); ?>"
+                               placeholder="<?php echo $id > 0 ? '' : 'Will generate on save'; ?>" readonly>
+                    <?php else: ?>
+                        <input type="text" name="employee_code" id="employeeCode" class="form-control" required maxlength="50"
+                               value="<?php echo htmlspecialchars($val('employee_code')); ?>"
+                               placeholder="e.g. EMP0001" style="text-transform:uppercase;">
+                    <?php endif; ?>
+                </div>
+                <div class="form-group">
                     <label for="username">Username <span class="req">*</span></label>
                     <input type="text" name="username" id="username" class="form-control" required maxlength="50"
                            value="<?php echo htmlspecialchars($val('username')); ?>" autocomplete="off">
@@ -109,26 +123,24 @@ require_once __DIR__ . '/../includes/header.php';
                            placeholder="<?php echo $id > 0 ? 'Leave blank to keep current' : ''; ?>"
                            autocomplete="new-password">
                 </div>
+                <input type="hidden" name="department_id" value="0">
                 <div class="form-group">
-                    <label for="loginRole">Role Type <span class="req">*</span></label>
-                    <select name="role" id="loginRole" class="form-control js-select2">
-                        <option value="admin" <?php echo $loginRole === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                        <option value="employee" <?php echo $loginRole === 'employee' ? 'selected' : ''; ?>>User</option>
-                    </select>
-                </div>
-                <div class="form-group" id="customRoleWrap">
-                    <label for="customRoleId">Custom Role (Access)</label>
-                    <select name="custom_role_id" id="customRoleId" class="form-control js-select2">
-                        <option value="0">— Not assigned —</option>
-                        <?php foreach ($roles as $r): ?>
-                            <option value="<?php echo (int) $r['id']; ?>" <?php echo $customRoleId === (int) $r['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($r['name']); ?>
+                    <label for="roleId">Role <span class="req">*</span></label>
+                    <select name="role_id" id="roleId" class="form-control js-select2" required>
+                        <option value="0" <?php echo $roleId <= 0 ? 'selected' : ''; ?>>
+                            Admin (Full access)
+                        </option>
+                        <?php foreach ($roleOptions as $r): ?>
+                            <option value="<?php echo (int) $r['id']; ?>" <?php echo $roleId === (int) $r['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars((string) $r['name']); ?>
+                                <?php if (!empty($r['code'])): ?>
+                                    (<?php echo htmlspecialchars((string) $r['code']); ?>)
+                                <?php endif; ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <small class="text-muted">Admin always has full access. Custom role is optional for Users.</small>
+                    <small class="text-muted">Selected role na permissions mujab modules show thase.</small>
                 </div>
-                <input type="hidden" name="department_id" value="0">
                 <div class="form-group">
                     <label for="reportsTo">Reports To</label>
                     <select name="reports_to" id="reportsTo" class="form-control js-select2">
@@ -159,21 +171,5 @@ require_once __DIR__ . '/../includes/header.php';
         </form>
     </div>
 </main>
-
-<script>
-(function () {
-    var roleSel = document.getElementById('loginRole');
-    var wrap = document.getElementById('customRoleWrap');
-    function sync() {
-        if (!roleSel || !wrap) return;
-        wrap.style.opacity = roleSel.value === 'admin' ? '0.45' : '1';
-        wrap.querySelector('select').disabled = roleSel.value === 'admin';
-    }
-    if (roleSel) {
-        roleSel.addEventListener('change', sync);
-        sync();
-    }
-})();
-</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -35,6 +35,9 @@ function getCompanySettings()
         'letterhead'         => '',
         'inquiry_no_prefix'  => 'INQ',
         'inquiry_no_mode'    => 'auto',
+        'employee_code_prefix' => 'EMP',
+        'employee_code_mode'   => 'auto',
+        'phone_max_length'   => 15,
         'header_details'     => '',
         'footer_details'     => '',
     ];
@@ -47,7 +50,9 @@ function getCompanySettings()
     ensureCompanySettingsSchema($conn);
 
     $result = $conn->query(
-        "SELECT company_name, company_logo, login_logo, dashboard_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
+        "SELECT company_name, company_logo, login_logo, dashboard_logo, letterhead,
+                inquiry_no_prefix, inquiry_no_mode, employee_code_prefix, employee_code_mode,
+                phone_max_length, header_details, footer_details
          FROM company_settings WHERE id = 1 LIMIT 1"
     );
 
@@ -74,6 +79,19 @@ function getCompanySettings()
         $settings['inquiry_no_prefix'] = $prefix !== '' ? $prefix : 'INQ';
         $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
         $settings['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
+        $empPrefix = strtoupper(trim((string) ($row['employee_code_prefix'] ?? 'EMP')));
+        $empPrefix = preg_replace('/[^A-Z0-9_-]/', '', $empPrefix);
+        $settings['employee_code_prefix'] = $empPrefix !== '' ? $empPrefix : 'EMP';
+        $empMode = strtolower(trim((string) ($row['employee_code_mode'] ?? 'auto')));
+        $settings['employee_code_mode'] = in_array($empMode, ['auto', 'manual'], true) ? $empMode : 'auto';
+        $phoneMax = (int) ($row['phone_max_length'] ?? 15);
+        if ($phoneMax < 5) {
+            $phoneMax = 5;
+        }
+        if ($phoneMax > 40) {
+            $phoneMax = 40;
+        }
+        $settings['phone_max_length'] = $phoneMax;
         $settings['header_details'] = trim((string) ($row['header_details'] ?? ''));
         $settings['footer_details'] = trim((string) ($row['footer_details'] ?? ''));
     }
@@ -149,6 +167,87 @@ function getInquiryNoMode()
 function isInquiryNoAuto()
 {
     return getInquiryNoMode() === 'auto';
+}
+
+/**
+ * Staff user employee code prefix (e.g. EMP)
+ */
+function getEmployeeCodePrefix()
+{
+    $settings = getCompanySettings();
+    $prefix = strtoupper(trim((string) ($settings['employee_code_prefix'] ?? 'EMP')));
+    $prefix = preg_replace('/[^A-Z0-9_-]/', '', $prefix);
+    return $prefix !== '' ? $prefix : 'EMP';
+}
+
+/**
+ * Employee code mode: auto | manual
+ */
+function getEmployeeCodeMode()
+{
+    $settings = getCompanySettings();
+    $mode = strtolower(trim((string) ($settings['employee_code_mode'] ?? 'auto')));
+    return in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
+}
+
+function isEmployeeCodeAuto()
+{
+    return getEmployeeCodeMode() === 'auto';
+}
+
+/**
+ * Next staff employee code: PREFIX0001
+ */
+function generateStaffEmployeeCode($conn = null)
+{
+    if ($conn === null) {
+        $conn = getDBConnection();
+    }
+    $prefix = getEmployeeCodePrefix();
+    $like = $prefix . '%';
+    $stmt = $conn->prepare(
+        'SELECT employee_code FROM users
+         WHERE employee_code IS NOT NULL AND employee_code LIKE ?
+         ORDER BY id DESC LIMIT 1'
+    );
+    $stmt->bind_param('s', $like);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $next = 1;
+    if ($row && preg_match('/(\d+)$/', (string) $row['employee_code'], $m)) {
+        $next = ((int) $m[1]) + 1;
+    }
+    return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Max phone characters allowed on inquiry form (5–40).
+ */
+function getInquiryPhoneMaxLength()
+{
+    $settings = getCompanySettings();
+    $n = (int) ($settings['phone_max_length'] ?? 15);
+    if ($n < 5) {
+        $n = 5;
+    }
+    if ($n > 40) {
+        $n = 40;
+    }
+    return $n;
+}
+
+/**
+ * Phone may contain digits + special chars only: + - ( ) . / space
+ */
+function isValidInquiryPhoneChars($phone)
+{
+    $phone = trim((string) $phone);
+    if ($phone === '') {
+        return true;
+    }
+    return (bool) preg_match('/^[0-9+\-\(\)\.\/ ]+$/', $phone);
 }
 
 /**

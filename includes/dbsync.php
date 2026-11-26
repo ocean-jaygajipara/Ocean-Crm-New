@@ -21,6 +21,7 @@ function getDbSchemaSql()
                 dashboard_logo VARCHAR(255) DEFAULT NULL,
                 letterhead VARCHAR(255) DEFAULT NULL,
                 inquiry_no_prefix VARCHAR(40) NOT NULL DEFAULT 'INQ',
+                inquiry_no_mode VARCHAR(20) NOT NULL DEFAULT 'auto',
                 header_details TEXT DEFAULT NULL,
                 footer_details TEXT DEFAULT NULL,
                 email VARCHAR(150) DEFAULT NULL,
@@ -44,10 +45,12 @@ function getDbSchemaSql()
                 department_id INT NULL,
                 custom_role_id INT NULL,
                 employee_id INT NULL,
+                reports_to INT NOT NULL DEFAULT 0,
                 status TINYINT(1) NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_users_custom_role (custom_role_id),
-                INDEX idx_users_employee (employee_id)
+                INDEX idx_users_employee (employee_id),
+                INDEX idx_users_reports_to (reports_to)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         'roles' =>
@@ -261,13 +264,14 @@ function getDbSchemaSql()
                 state_id INT NOT NULL DEFAULT 0,
                 city_id INT NOT NULL DEFAULT 0,
                 area_id INT NOT NULL DEFAULT 0,
-                subject VARCHAR(255) DEFAULT NULL,
-                message TEXT DEFAULT NULL,
+                address VARCHAR(255) DEFAULT NULL,
+                requirement_details TEXT DEFAULT NULL,
                 inquiry_status_id INT NOT NULL DEFAULT 0,
                 follow_up_status_id INT NOT NULL DEFAULT 0,
                 inquiry_source_id INT NOT NULL DEFAULT 0,
                 next_follow_up_date DATE DEFAULT NULL,
                 created_by INT NOT NULL DEFAULT 0,
+                assign_to INT NOT NULL DEFAULT 0,
                 status TINYINT(1) NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -278,9 +282,24 @@ function getDbSchemaSql()
                 INDEX idx_inquiries_source (inquiry_source_id),
                 INDEX idx_inquiries_date (inquiry_date),
                 INDEX idx_inquiries_next_fu (next_follow_up_date),
+                INDEX idx_inquiries_created_by (created_by),
+                INDEX idx_inquiries_assign_to (assign_to),
                 INDEX idx_inquiries_country (country_id),
                 INDEX idx_inquiries_state (state_id),
                 INDEX idx_inquiries_city (city_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        'inquiry_products' =>
+            "CREATE TABLE IF NOT EXISTS inquiry_products (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                inquiry_id INT NOT NULL,
+                product_id INT NOT NULL DEFAULT 0,
+                qty DECIMAL(12,2) NOT NULL DEFAULT 1.00,
+                requirements VARCHAR(500) DEFAULT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_inquiry_products_inq (inquiry_id),
+                INDEX idx_inquiry_products_product (product_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
 }
@@ -415,6 +434,7 @@ function syncDatabase($conn = null, $withSeed = true)
         'dashboard_logo'  => 'VARCHAR(255) DEFAULT NULL',
         'letterhead'         => 'VARCHAR(255) DEFAULT NULL',
         'inquiry_no_prefix'  => "VARCHAR(40) NOT NULL DEFAULT 'INQ'",
+        'inquiry_no_mode'    => "VARCHAR(20) NOT NULL DEFAULT 'auto'",
         'header_details'     => 'TEXT DEFAULT NULL',
         'footer_details'     => 'TEXT DEFAULT NULL',
         'email'           => 'VARCHAR(150) DEFAULT NULL',
@@ -433,12 +453,35 @@ function syncDatabase($conn = null, $withSeed = true)
     // users upgrades
     dbAddColumnIfMissing($conn, 'users', 'custom_role_id', 'INT NULL DEFAULT NULL AFTER department_id', $log);
     dbAddColumnIfMissing($conn, 'users', 'employee_id', 'INT NULL DEFAULT NULL AFTER custom_role_id', $log);
+    dbAddColumnIfMissing($conn, 'users', 'reports_to', 'INT NOT NULL DEFAULT 0 AFTER employee_id', $log);
 
-    // inquiries: ensure FK status columns (legacy inquiry_status text dropped after migrate)
-    dbAddColumnIfMissing($conn, 'inquiries', 'inquiry_status_id', 'INT NOT NULL DEFAULT 0 AFTER message', $log);
+    // inquiries: address + requirement_details + status columns
+    dbAddColumnIfMissing($conn, 'inquiries', 'address', 'VARCHAR(255) DEFAULT NULL AFTER area_id', $log);
+    dbAddColumnIfMissing($conn, 'inquiries', 'requirement_details', 'TEXT DEFAULT NULL AFTER address', $log);
+    // migrate legacy message → requirement_details then drop message
+    if (dbTableExists($conn, 'inquiries')) {
+        $inqCols = dbTableColumns($conn, 'inquiries');
+        if (in_array('message', $inqCols, true) && in_array('requirement_details', $inqCols, true)) {
+            $conn->query(
+                "UPDATE inquiries
+                 SET requirement_details = message
+                 WHERE (requirement_details IS NULL OR requirement_details = '')
+                   AND message IS NOT NULL AND message <> ''"
+            );
+            if (function_exists('dbDropColumnIfExists')) {
+                dbDropColumnIfExists($conn, 'inquiries', 'message', $log);
+            }
+        }
+    }
+    dbAddColumnIfMissing($conn, 'inquiries', 'inquiry_status_id', 'INT NOT NULL DEFAULT 0 AFTER requirement_details', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'follow_up_status_id', 'INT NOT NULL DEFAULT 0 AFTER inquiry_status_id', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'inquiry_source_id', 'INT NOT NULL DEFAULT 0 AFTER follow_up_status_id', $log);
     dbAddColumnIfMissing($conn, 'inquiries', 'next_follow_up_date', 'DATE DEFAULT NULL AFTER inquiry_source_id', $log);
+    dbAddColumnIfMissing($conn, 'inquiries', 'assign_to', 'INT NOT NULL DEFAULT 0 AFTER created_by', $log);
+    if (function_exists('dbDropColumnIfExists')) {
+        dbDropColumnIfExists($conn, 'inquiries', 'subject', $log);
+    }
+    dbAddColumnIfMissing($conn, 'inquiry_products', 'requirements', 'VARCHAR(500) DEFAULT NULL AFTER qty', $log);
     dbAddColumnIfMissing($conn, 'inquiry_statuses', 'color', 'VARCHAR(20) DEFAULT NULL AFTER code', $log);
     dbAddColumnIfMissing($conn, 'inquiry_statuses', 'is_default', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER color', $log);
     dbAddColumnIfMissing($conn, 'follow_up_statuses', 'color', 'VARCHAR(20) DEFAULT NULL AFTER code', $log);

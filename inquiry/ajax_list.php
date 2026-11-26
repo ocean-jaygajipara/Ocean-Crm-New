@@ -1,7 +1,7 @@
 <?php
 /**
- * Inquiry — AJAX list (JSON for DataTables)
- * DB: open via getDBConnection (shared), closed in jsonResponse.
+ * Inquiry — AJAX list only (JSON for DataTables)
+ * Used by index.php list. Not used by add/edit forms.
  */
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';

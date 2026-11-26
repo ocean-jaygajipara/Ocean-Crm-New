@@ -1,6 +1,7 @@
 <?php
 /**
  * Inquiry — Save (add / update)
+ * Normal form POST (no AJAX). Redirects back to list / form.
  */
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
@@ -36,6 +37,6 @@ $_SESSION['inquiry_form_error'] = (string) ($result['error'] ?? 'Save failed');
 $_SESSION['inquiry_form_flash'] = $_POST;
 $back = $id > 0
     ? app_url('inquiry/edit.php?id=' . $id)
-    : app_url('inquiry/edit.php');
+    : app_url('inquiry/add.php');
 header('Location: ' . $back);
 exit;

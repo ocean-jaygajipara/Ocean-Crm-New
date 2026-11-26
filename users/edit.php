@@ -50,6 +50,10 @@ $customRoleId = array_key_exists('custom_role_id', $formData)
 $deptId = array_key_exists('department_id', $formData)
     ? (int) $formData['department_id']
     : (int) ($row['department_id'] ?? 0);
+$reportsToId = array_key_exists('reports_to', $formData)
+    ? (int) $formData['reports_to']
+    : (int) ($row['reports_to'] ?? 0);
+$reportsToOptions = getReportsToOptions($id);
 
 $pageTitle = $row ? 'Edit Staff User' : 'Add Staff User';
 $useSidebar = true;
@@ -75,7 +79,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div>
                     <h1><?php echo $row ? 'Edit Staff User' : 'Add Staff User'; ?></h1>
-                    <p>Login portal role + optional custom access role for HR</p>
+                    <p>Login role, access role, and team hierarchy (Reports To)</p>
                 </div>
             </div>
         </div>
@@ -107,14 +111,14 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-group">
                     <label for="loginRole">Role Type <span class="req">*</span></label>
-                    <select name="role" id="loginRole" class="form-control">
+                    <select name="role" id="loginRole" class="form-control js-select2">
                         <option value="admin" <?php echo $loginRole === 'admin' ? 'selected' : ''; ?>>Admin</option>
                         <option value="employee" <?php echo $loginRole === 'employee' ? 'selected' : ''; ?>>User</option>
                     </select>
                 </div>
                 <div class="form-group" id="customRoleWrap">
                     <label for="customRoleId">Custom Role (Access)</label>
-                    <select name="custom_role_id" id="customRoleId" class="form-control">
+                    <select name="custom_role_id" id="customRoleId" class="form-control js-select2">
                         <option value="0">— Not assigned —</option>
                         <?php foreach ($roles as $r): ?>
                             <option value="<?php echo (int) $r['id']; ?>" <?php echo $customRoleId === (int) $r['id'] ? 'selected' : ''; ?>>
@@ -126,8 +130,20 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <input type="hidden" name="department_id" value="0">
                 <div class="form-group">
+                    <label for="reportsTo">Reports To</label>
+                    <select name="reports_to" id="reportsTo" class="form-control js-select2">
+                        <option value="0">— No manager —</option>
+                        <?php foreach ($reportsToOptions as $rid => $rlabel): ?>
+                            <option value="<?php echo (int) $rid; ?>" <?php echo $reportsToId === (int) $rid ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($rlabel); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small class="text-muted">Manager can view this user's inquiries (team data).</small>
+                </div>
+                <div class="form-group">
                     <label for="userStatus">Status</label>
-                    <select name="status" id="userStatus" class="form-control">
+                    <select name="status" id="userStatus" class="form-control js-select2">
                         <option value="1" <?php echo $statusVal === 1 ? 'selected' : ''; ?>>Active</option>
                         <option value="0" <?php echo $statusVal === 0 ? 'selected' : ''; ?>>Inactive</option>
                     </select>

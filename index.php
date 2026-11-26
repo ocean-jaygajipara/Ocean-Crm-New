@@ -51,14 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         $roleName = '';
+        $roleCode = '';
         if ($user && !empty($user['custom_role_id'])) {
-            $rs = $conn->prepare('SELECT name FROM roles WHERE id = ? AND status = 1 LIMIT 1');
+            $rs = $conn->prepare('SELECT name, code FROM roles WHERE id = ? AND status = 1 LIMIT 1');
             $rid = (int) $user['custom_role_id'];
             $rs->bind_param('i', $rid);
             $rs->execute();
             $rr = $rs->get_result()->fetch_assoc();
             $rs->close();
             $roleName = (string) ($rr['name'] ?? '');
+            $roleCode = strtoupper(trim((string) ($rr['code'] ?? '')));
         }
 
         $userRole = strtolower((string) ($user['role'] ?? ''));
@@ -78,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['employee_id'] = !empty($user['employee_id']) ? (int) $user['employee_id'] : 0;
             $_SESSION['custom_role_id'] = !empty($user['custom_role_id']) ? (int) $user['custom_role_id'] : 0;
             $_SESSION['custom_role_name'] = $roleName;
+            $_SESSION['role_code'] = $roleCode;
             unset($_SESSION['permissions'], $_SESSION['permissions_role_id']);
             if ($_SESSION['custom_role_id'] > 0) {
                 loadUserPermissionsIntoSession($_SESSION['custom_role_id'], true);

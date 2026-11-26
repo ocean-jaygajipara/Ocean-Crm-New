@@ -19,14 +19,16 @@
     }
 
     var cascade = window.INQUIRY_FILTER_CASCADE || { states: [], cities: [], areas: [] };
+    var urlParams = new URLSearchParams(window.location.search || '');
     var filterState = {
         country_id: '',
         state_id: '',
         city_id: '',
         inquiry_source_id: '',
-        inquiry_status_id: '',
-        follow_up_status_id: '',
+        inquiry_status_id: (urlParams.get('inquiry_status_id') || '').toString(),
+        follow_up_status_id: (urlParams.get('follow_up_status_id') || '').toString(),
         record_status: 'active',
+        filter: (urlParams.get('filter') || '').toString(),
         q: ''
     };
 
@@ -71,6 +73,9 @@
     if (jQuery('#flt_state_id').length) {
         refreshCascade('init');
     }
+    if (window.CrmSelect2 && typeof window.CrmSelect2.init === 'function') {
+        window.CrmSelect2.init(jQuery('#inquiryFilterForm'));
+    }
 
     jQuery(document).on('change', '#flt_country_id', function () {
         refreshCascade('country_id');
@@ -88,6 +93,18 @@
         filterState.follow_up_status_id = (jQuery('#flt_follow_up_status_id').val() || '').toString();
         filterState.record_status = (jQuery('#flt_record_status').val() || 'active').toString();
         filterState.q = (jQuery('#flt_q').val() || '').toString().trim();
+        // Keep dashboard quick-filter until user resets / changes filters
+        if (!filterState.filter) {
+            filterState.filter = '';
+        }
+    }
+
+    // Prefill filter UI from dashboard / URL shortcuts
+    if (filterState.inquiry_status_id && jQuery('#flt_inquiry_status_id').length) {
+        jQuery('#flt_inquiry_status_id').val(filterState.inquiry_status_id);
+    }
+    if (filterState.follow_up_status_id && jQuery('#flt_follow_up_status_id').length) {
+        jQuery('#flt_follow_up_status_id').val(filterState.follow_up_status_id);
     }
 
     var $table = jQuery('#inquiryTable');
@@ -97,7 +114,7 @@
         processing: false,
         serverSide: false,
         autoWidth: false,
-        scrollX: true,
+        scrollX: false,
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         order: [[2, 'desc']],
@@ -113,6 +130,7 @@
                 d.inquiry_status_id = filterState.inquiry_status_id || '';
                 d.follow_up_status_id = filterState.follow_up_status_id || '';
                 d.record_status = filterState.record_status || 'active';
+                d.filter = filterState.filter || '';
                 d.q = filterState.q || '';
             },
             dataSrc: 'data',
@@ -123,9 +141,19 @@
             }
         },
         columnDefs: [
-            { orderable: false, searchable: false, targets: [0, 11] },
+            { orderable: false, searchable: false, targets: [0, 8, 9, 10] },
             { className: 'crm-col-sr text-center', targets: 0 },
-            { className: 'crm-col-action text-center', targets: 11 }
+            { className: 'crm-col-inqno', targets: 1 },
+            { className: 'crm-col-date', targets: 2 },
+            { className: 'crm-col-customer', targets: 3 },
+            { className: 'crm-col-company', targets: 4 },
+            { className: 'crm-col-phone', targets: 5 },
+            { className: 'crm-col-location', targets: 6 },
+            { className: 'crm-col-source', targets: 7 },
+            { className: 'crm-col-status', targets: [8, 9] },
+            { className: 'crm-col-action text-center', targets: 10 },
+            { width: '42px', targets: 0 },
+            { width: '78px', targets: 10 }
         ],
         createdRow: function (row) {
             jQuery(row).addClass('crm-dt-row');
@@ -177,8 +205,12 @@
             inquiry_status_id: '',
             follow_up_status_id: '',
             record_status: 'active',
+            filter: '',
             q: ''
         };
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
         if (jQuery('#flt_record_status').length) {
             jQuery('#flt_record_status').val('active').trigger('change');
         }
@@ -209,6 +241,100 @@
         }
         alert(msg);
     }
+
+    function paintStatusSelect(sel) {
+        if (!sel) return;
+        var opt = sel.options[sel.selectedIndex];
+        var color = opt ? (opt.getAttribute('data-color') || '').trim() : '';
+        if (color) {
+            if (color.charAt(0) !== '#') color = '#' + color;
+            sel.style.borderColor = color;
+            sel.style.color = color;
+            sel.style.backgroundColor = color + '18';
+            sel.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E\")";
+            sel.style.backgroundRepeat = 'no-repeat';
+            sel.style.backgroundPosition = 'right 10px center';
+        } else {
+            sel.style.borderColor = '';
+            sel.style.color = '';
+            sel.style.backgroundColor = '';
+            sel.style.backgroundImage = '';
+            sel.style.backgroundRepeat = '';
+            sel.style.backgroundPosition = '';
+        }
+    }
+
+    function refreshGridStatusColors(ctx) {
+        var root = ctx || document;
+        var nodes = root.querySelectorAll
+            ? root.querySelectorAll('#inquiryTable .js-inq-grid-status')
+            : [];
+        for (var i = 0; i < nodes.length; i++) {
+            paintStatusSelect(nodes[i]);
+        }
+    }
+
+    $table.on('draw.dt', function () {
+        refreshGridStatusColors(document);
+    });
+
+    jQuery(document).on('change', '#inquiryTable .js-inq-grid-status', function () {
+        var sel = this;
+        if (!window.INQUIRY_CAN_EDIT || !window.INQUIRY_STATUS_URL) {
+            return;
+        }
+        var id = parseInt(sel.getAttribute('data-id') || '0', 10);
+        var field = (sel.getAttribute('data-field') || '').toString();
+        var prev = (sel.getAttribute('data-prev') || '0').toString();
+        var statusId = (sel.value || '0').toString();
+        if (!id || (field !== 'inquiry_status_id' && field !== 'follow_up_status_id')) {
+            return;
+        }
+        if (statusId === prev) {
+            paintStatusSelect(sel);
+            return;
+        }
+
+        sel.disabled = true;
+        var body = new FormData();
+        body.append('id', String(id));
+        body.append('field', field);
+        body.append('status_id', statusId);
+
+        fetch(window.INQUIRY_STATUS_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: body
+        })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { okHttp: res.ok, data: data };
+                });
+            })
+            .then(function (pack) {
+                var data = pack.data || {};
+                sel.disabled = false;
+                if (data.ok) {
+                    sel.setAttribute('data-prev', statusId);
+                    paintStatusSelect(sel);
+                    toast('success', data.message || 'Status updated.');
+                } else {
+                    sel.value = prev;
+                    paintStatusSelect(sel);
+                    toast('error', data.message || 'Status update failed.');
+                }
+            })
+            .catch(function () {
+                sel.disabled = false;
+                sel.value = prev;
+                paintStatusSelect(sel);
+                toast('error', 'Network error. Please try again.');
+            });
+    });
 
     function ajaxInquiryAction(url, fallbackMsg) {
         var sep = url.indexOf('?') >= 0 ? '&' : '?';

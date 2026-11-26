@@ -57,7 +57,7 @@ if (isset($_GET['msg'])) {
                 </div>
                 <div>
                     <h1>Staff Users</h1>
-                    <p>Assign custom roles to HR users · Admin always has full access</p>
+                    <p>Roles + team hierarchy (Reports To) · Admin always has full access</p>
                 </div>
             </div>
         </div>
@@ -71,7 +71,7 @@ if (isset($_GET['msg'])) {
                         <th>Username</th>
                         <th>Login As</th>
                         <th>Custom Role</th>
-                        <th>Home Dept</th>
+                        <th>Reports To</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -97,7 +97,12 @@ if (isset($_GET['msg'])) {
                                     <span class="badge badge-muted">Not assigned</span>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo htmlspecialchars($u['department_name'] ?? '—'); ?></td>
+                            <td>
+                                <?php
+                                $mgrName = trim((string) ($u['reports_to_name'] ?? ''));
+                                echo $mgrName !== '' ? htmlspecialchars($mgrName) : '<span class="text-muted">—</span>';
+                                ?>
+                            </td>
                             <td>
                                 <?php if ((int) $u['status'] === 1): ?>
                                     <span class="badge badge-success">Active</span>

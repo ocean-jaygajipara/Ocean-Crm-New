@@ -23,6 +23,15 @@ if ($id <= 0) {
     exit;
 }
 
+$row = getInquiryRow($id);
+if (!$row || !canAccessInquiryRecord($row)) {
+    if ($ajax) {
+        jsonResponse(['ok' => false, 'message' => 'Access denied.'], 403);
+    }
+    header('Location: ' . app_url('inquiry/index.php'));
+    exit;
+}
+
 $ok = softDeleteInquiry($id);
 
 if ($ajax) {

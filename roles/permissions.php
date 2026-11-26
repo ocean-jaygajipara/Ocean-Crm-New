@@ -73,7 +73,7 @@ if (isset($_GET['msg'])) {
             <div class="form-grid form-grid-2">
                 <div class="form-group">
                     <label for="permRoleId">Role <span class="req">*</span></label>
-                    <select name="role_id" id="permRoleId" class="form-control" required onchange="this.form.submit()">
+                    <select name="role_id" id="permRoleId" class="form-control js-select2" required onchange="this.form.submit()">
                         <option value="">Select Role</option>
                         <?php foreach ($roles as $r): ?>
                             <option value="<?php echo (int) $r['id']; ?>" <?php echo $roleId === (int) $r['id'] ? 'selected' : ''; ?>>

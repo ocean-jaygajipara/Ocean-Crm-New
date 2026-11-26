@@ -23,6 +23,7 @@ $data = [
     'role' => $_POST['role'] ?? 'hr',
     'department_id' => $_POST['department_id'] ?? 0,
     'custom_role_id' => $_POST['custom_role_id'] ?? 0,
+    'reports_to' => $_POST['reports_to'] ?? 0,
     'status' => $_POST['status'] ?? 1,
 ];
 

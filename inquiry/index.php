@@ -1,6 +1,8 @@
 <?php
 /**
- * Inquiry — List
+ * Inquiry — List (index)
+ * Table data: AJAX → ajax_list.php
+ * Delete / Restore: AJAX from list actions
  */
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
@@ -15,6 +17,7 @@ ensureInquiryTables();
 ensureMasterTables();
 
 $canAdd = canAccess('inquiry', 'add');
+$canEdit = canAccess('inquiry', 'edit');
 $canDelete = canAccess('inquiry', 'delete');
 
 $pageTitle = 'Inquiry';
@@ -71,7 +74,7 @@ $inqSources = getInquirySources();
         </a>
         <div class="toolbar-actions">
             <?php if ($canAdd): ?>
-            <a href="<?php echo app_url('inquiry/edit.php'); ?>" class="btn-primary">
+            <a href="<?php echo app_url('inquiry/add.php'); ?>" class="btn-primary">
                 <i class="fa-solid fa-plus"></i> Add Inquiry
             </a>
             <?php endif; ?>
@@ -102,7 +105,7 @@ $inqSources = getInquirySources();
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_country_id">Country</label>
-                        <select id="flt_country_id" name="country_id" class="form-control js-inq-filter">
+                        <select id="flt_country_id" name="country_id" class="form-control js-select2 js-inq-filter">
                             <option value="">All</option>
                             <?php foreach ($countries as $oid => $olabel): ?>
                                 <option value="<?php echo (int) $oid; ?>"><?php echo htmlspecialchars((string) $olabel); ?></option>
@@ -113,19 +116,19 @@ $inqSources = getInquirySources();
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_state_id">State</label>
-                        <select id="flt_state_id" name="state_id" class="form-control js-inq-filter" data-parent="country_id"></select>
+                        <select id="flt_state_id" name="state_id" class="form-control js-select2 js-inq-filter" data-parent="country_id"></select>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_city_id">City</label>
-                        <select id="flt_city_id" name="city_id" class="form-control js-inq-filter" data-parent="state_id"></select>
+                        <select id="flt_city_id" name="city_id" class="form-control js-select2 js-inq-filter" data-parent="state_id"></select>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_inquiry_source_id">Source of Inquiry</label>
-                        <select id="flt_inquiry_source_id" name="inquiry_source_id" class="form-control js-inq-filter">
+                        <select id="flt_inquiry_source_id" name="inquiry_source_id" class="form-control js-select2 js-inq-filter">
                             <option value="">All</option>
                             <?php foreach ($inqSources as $k => $v): ?>
                                 <option value="<?php echo (int) $k; ?>"><?php echo htmlspecialchars($v); ?></option>
@@ -136,7 +139,7 @@ $inqSources = getInquirySources();
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_inquiry_status_id">Inquiry Status</label>
-                        <select id="flt_inquiry_status_id" name="inquiry_status_id" class="form-control js-inq-filter">
+                        <select id="flt_inquiry_status_id" name="inquiry_status_id" class="form-control js-select2 js-inq-filter">
                             <option value="">All</option>
                             <?php foreach ($inqStatuses as $k => $v): ?>
                                 <option value="<?php echo (int) $k; ?>"><?php echo htmlspecialchars($v); ?></option>
@@ -147,7 +150,7 @@ $inqSources = getInquirySources();
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_follow_up_status_id">Follow Up Status</label>
-                        <select id="flt_follow_up_status_id" name="follow_up_status_id" class="form-control js-inq-filter">
+                        <select id="flt_follow_up_status_id" name="follow_up_status_id" class="form-control js-select2 js-inq-filter">
                             <option value="">All</option>
                             <?php foreach ($fuStatuses as $k => $v): ?>
                                 <option value="<?php echo (int) $k; ?>"><?php echo htmlspecialchars($v); ?></option>
@@ -159,7 +162,7 @@ $inqSources = getInquirySources();
                 <div class="col-md-3">
                     <div class="form-group crm-filter-item">
                         <label for="flt_record_status">Status</label>
-                        <select id="flt_record_status" name="record_status" class="form-control js-inq-filter">
+                        <select id="flt_record_status" name="record_status" class="form-control js-select2 js-inq-filter">
                             <option value="active" selected>Active</option>
                             <option value="deleted">Deleted</option>
                             <option value="all">All</option>
@@ -175,9 +178,9 @@ $inqSources = getInquirySources();
         </form>
     </div>
 
-    <div class="data-card data-card-pad">
-        <div class="table-wrap">
-            <table id="inquiryTable" class="display data-table crm-dt-table nowrap" style="width:100%">
+    <div class="data-card data-card-pad crm-dt-shell">
+        <div class="table-wrap crm-dt-wrap">
+            <table id="inquiryTable" class="display data-table crm-dt-table" style="width:100%">
                 <thead>
                     <tr>
                         <th>Sr.</th>
@@ -190,7 +193,6 @@ $inqSources = getInquirySources();
                         <th>Source</th>
                         <th>Inquiry Status</th>
                         <th>Follow Up</th>
-                        <th>Next Follow Up</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -202,6 +204,8 @@ $inqSources = getInquirySources();
 <script>
     window.INQUIRY_TOAST_MSG = <?php echo json_encode($toastMsg); ?>;
     window.INQUIRY_AJAX_URL = <?php echo json_encode(app_url('inquiry/ajax_list.php')); ?>;
+    window.INQUIRY_STATUS_URL = <?php echo json_encode(app_url('inquiry/ajax_status.php')); ?>;
+    window.INQUIRY_CAN_EDIT = <?php echo $canEdit ? 'true' : 'false'; ?>;
     window.INQUIRY_FILTER_CASCADE = <?php echo json_encode($filterCascade); ?>;
 </script>
 <?php

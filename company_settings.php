@@ -25,12 +25,13 @@ $current = [
     'dashboard_logo'     => null,
     'letterhead'         => null,
     'inquiry_no_prefix'  => 'INQ',
+    'inquiry_no_mode'    => 'auto',
     'header_details'     => '',
     'footer_details'     => '',
 ];
 
 $res = $conn->query(
-    "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, header_details, footer_details
+    "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
      FROM company_settings WHERE id = 1 LIMIT 1"
 );
 if ($res && $row = $res->fetch_assoc()) {
@@ -41,6 +42,8 @@ if ($res && $row = $res->fetch_assoc()) {
     $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
     $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
     $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
+    $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
+    $current['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
     $current['header_details'] = (string) ($row['header_details'] ?? '');
     $current['footer_details'] = (string) ($row['footer_details'] ?? '');
 }
@@ -124,6 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($inquiryPrefix === '') {
         $inquiryPrefix = 'INQ';
     }
+    $inquiryMode = strtolower(trim((string) ($_POST['inquiry_no_mode'] ?? 'auto')));
+    if (!in_array($inquiryMode, ['auto', 'manual'], true)) {
+        $inquiryMode = 'auto';
+    }
     $headerDetails = trim($_POST['header_details'] ?? '');
     $footerDetails = trim($_POST['footer_details'] ?? '');
     $removeLogin = isset($_POST['remove_login_logo']);
@@ -134,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Company name is required.';
         $messageType = 'error';
         $current['inquiry_no_prefix'] = $inquiryPrefix;
+        $current['inquiry_no_mode'] = $inquiryMode;
         $current['header_details'] = $headerDetails;
         $current['footer_details'] = $footerDetails;
     } else {
@@ -167,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = $uploadError;
             $messageType = 'error';
             $current['inquiry_no_prefix'] = $inquiryPrefix;
+            $current['inquiry_no_mode'] = $inquiryMode;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         } else {
@@ -190,19 +199,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      company_logo = ?,
                      letterhead = ?,
                      inquiry_no_prefix = ?,
+                     inquiry_no_mode = ?,
                      header_details = ?,
                      footer_details = ?
                  WHERE id = 1"
             );
             $legacy = $dashLogo;
             $stmt->bind_param(
-                'ssssssss',
+                'sssssssss',
                 $companyName,
                 $loginLogo,
                 $dashLogo,
                 $legacy,
                 $letterhead,
                 $inquiryPrefix,
+                $inquiryMode,
                 $headerDetails,
                 $footerDetails
             );
@@ -218,6 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageType = 'error';
             $conn = getDBConnection();
             $current['inquiry_no_prefix'] = $inquiryPrefix;
+            $current['inquiry_no_mode'] = $inquiryMode;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         }
@@ -228,7 +240,7 @@ if (isset($_GET['saved']) && $_GET['saved'] == '1') {
     $message = 'Company settings saved successfully.';
     $messageType = 'success';
     $res = $conn->query(
-        "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, header_details, footer_details
+        "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
          FROM company_settings WHERE id = 1 LIMIT 1"
     );
     if ($res && $row = $res->fetch_assoc()) {
@@ -239,6 +251,8 @@ if (isset($_GET['saved']) && $_GET['saved'] == '1') {
         $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
         $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
         $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
+        $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
+        $current['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
         $current['header_details'] = (string) ($row['header_details'] ?? '');
         $current['footer_details'] = (string) ($row['footer_details'] ?? '');
     }
@@ -293,16 +307,33 @@ $previewLetterhead = $hasLetterhead ? $current['letterhead'] : '';
                            value="<?php echo htmlspecialchars($current['company_name'] ?? 'Ocean CRM'); ?>" required>
                 </div>
 
-                <div class="form-group">
-                    <label for="inquiry_no_prefix">Inquiry No Prefix</label>
-                    <input type="text" id="inquiry_no_prefix" name="inquiry_no_prefix" class="form-control"
-                           maxlength="20" style="max-width:220px;text-transform:uppercase;"
-                           value="<?php echo htmlspecialchars($current['inquiry_no_prefix'] ?? 'INQ'); ?>"
-                           placeholder="INQ">
-                    <small class="form-help">
-                        New inquiry numbers: <strong><?php echo htmlspecialchars(($current['inquiry_no_prefix'] ?? 'INQ') . '-' . date('Y') . '-0001'); ?></strong>
-                        (letters, numbers, _ or - only)
-                    </small>
+                <div class="crm-row" style="margin-bottom:8px;">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="inquiry_no_prefix">Inquiry No Prefix</label>
+                            <input type="text" id="inquiry_no_prefix" name="inquiry_no_prefix" class="form-control"
+                                   maxlength="20" style="text-transform:uppercase;"
+                                   value="<?php echo htmlspecialchars($current['inquiry_no_prefix'] ?? 'INQ'); ?>"
+                                   placeholder="INQ">
+                            <small class="form-help">
+                                Auto example: <strong><?php echo htmlspecialchars(($current['inquiry_no_prefix'] ?? 'INQ') . '-' . date('Y') . '-0001'); ?></strong>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="inquiry_no_mode">Inquiry No Mode</label>
+                            <select id="inquiry_no_mode" name="inquiry_no_mode" class="form-control js-select2">
+                                <?php $inqMode = (string) ($current['inquiry_no_mode'] ?? 'auto'); ?>
+                                <option value="auto" <?php echo $inqMode === 'auto' ? 'selected' : ''; ?>>Auto Generate</option>
+                                <option value="manual" <?php echo $inqMode === 'manual' ? 'selected' : ''; ?>>Manual</option>
+                            </select>
+                            <small class="form-help">
+                                <strong>Auto Generate</strong> — system assigns number (readonly).<br>
+                                <strong>Manual</strong> — user types Inquiry No on add/edit form.
+                            </small>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="logo-split-grid">

@@ -1,0 +1,338 @@
+================================================================================
+  OCEAN CRM — STANDARD OPERATING PROCEDURE (SOP)
+  Project : Ocean Crm New
+  Purpose : Akho system kem work kare, flow, roles, permissions, inquiry —
+            team badha samji shake te mate detail guide.
+================================================================================
+
+1) SYSTEM OVERVIEW
+--------------------------------------------------------------------------------
+Ocean CRM = Customer Relationship Management.
+
+Main modules:
+  - Login / Dashboard
+  - Inquiry (customer inquiries)
+  - Masters (statuses, products, locations, sources…)
+  - Users + Roles (Admin)
+  - Company Settings / DB Sync (Admin)
+
+Technology:
+  - PHP + MySQL (XAMPP)
+  - Folder : htdocs/Ocean Crm New
+  - URL    : http://localhost/Ocean%20Crm%20New/
+
+
+2) LOGIN FLOW
+--------------------------------------------------------------------------------
+Page : index.php
+
+Steps:
+  1. Username + Password enter
+  2. System users table mathi match kare
+  3. Session set thay:
+       - user_id, username, full_name, role
+       - custom_role_id, custom_role_name, role_code
+       - permissions (role_permissions mathi)
+  4. Redirect → dashboard.php
+
+Login role types (users.role):
+  - admin  = full access (permission check skip)
+  - hr     = custom role (Sales Person etc.) thi module access
+  - employee = portal user (custom role)
+
+Important:
+  - Admin always full access.
+  - Sales / other users = Custom Role permissions + team data scope.
+
+
+3) SAMPLE LOGINS (TESTING)
+--------------------------------------------------------------------------------
+Admin:
+  Username : ADMIN
+  Password : (jem set kariyu hoy — default project admin)
+
+Sales team hierarchy demo:
+  Username : JAY      Password : Sales@123   (Manager)
+  Username : RAJ      Password : Sales@123   (reports to JAY)
+  Username : BHAVIN   Password : Sales@123   (reports to JAY)
+  Username : HARSH    Password : Sales@123   (reports to JAY)
+
+Other sales samples (optional):
+  SALES1 … SALES5 / Sales@123
+
+
+4) ROLE & PERMISSION FLOW
+--------------------------------------------------------------------------------
+Admin path:
+  Users  → Staff user create/edit
+  Roles  → Custom role create + permission matrix
+
+Permission modules (examples):
+  - inquiry  (view / add / edit / delete)
+  - masters  (view / add / edit / delete)
+  - users
+  - roles
+
+Sales Person role (default):
+  - Inquiry : View + Add + Edit
+  - Inquiry Delete : NO
+  - Masters / Users / Roles : NO
+
+Kai rite check thay:
+  - Function : canAccess('module', 'action')
+  - Page guard : requireAccess('inquiry', 'view')
+  - Sidebar menu pan permission hisab e show/hide
+
+Flow:
+  Login → load role_permissions → session.permissions
+       → sidebar + pages permission check
+       → allowed modules j open thay
+
+
+5) TEAM HIERARCHY (REPORTS TO) — IMPORTANT
+--------------------------------------------------------------------------------
+Concept:
+  Manager ne team member ni inquiries pan dekhay.
+
+DB:
+  users.reports_to = manager nu user id
+  Example:
+    JAY.reports_to     = 0     (top)
+    RAJ.reports_to     = JAY id
+    BHAVIN.reports_to  = JAY id
+    HARSH.reports_to   = JAY id
+
+UI ma set karva (Admin):
+  1. Admin login
+  2. Sidebar → Users
+  3. Team member Edit (e.g. BHAVIN)
+  4. Field "Reports To" → JAY select
+  5. Save
+
+Visibility rule (non-admin):
+  User ne inquiry dekhay jo:
+    - created_by = pote OR team member
+    - OR assign_to = pote OR team member
+
+Meaning:
+  - BHAVIN login → only Bhavin nu data
+  - JAY login    → Jay + Raj + Bhavin + Harsh nu data
+  - Nested team pan support (A → B → C to A ne C pan dekhay)
+
+Code helpers:
+  - getUserSubordinateIds()
+  - getInquiryScopeUserIds()
+  - canAccessInquiryRecord()
+
+
+6) INQUIRY MODULE — FULL FLOW
+--------------------------------------------------------------------------------
+Files:
+  inquiry/index.php      = List (DataTable)
+  inquiry/add.php        = Add form
+  inquiry/edit.php       = Edit form
+  inquiry/_form.php      = Shared form fields
+  inquiry/save.php       = Save
+  inquiry/ajax_list.php  = List AJAX data
+  inquiry/ajax_status.php= Grid mathi status update
+  inquiry/delete.php     = Soft delete
+  inquiry/restore.php    = Restore
+
+6.1 Add Inquiry
+  1. Inquiry → Add Inquiry (or Dashboard shortcut)
+  2. Fill:
+       - Inquiry No (Auto / Manual mode)
+       - Date, Customer, Company, Phone, Email
+       - Country / State / City / Area / Address
+       - Requirement Details
+       - Product Details (multi rows: Product + Qty + Requirements)
+       - Inquiry Status, Follow Up Status, Source
+       - Next Follow Up Date
+       - Created By / Assign To
+  3. Save → inquiries + inquiry_products tables
+
+Created By / Assign To rules:
+  - Admin : Created By change kari shake
+  - Sales : Created By locked (pote), Assign To select kari shake
+
+6.2 List Inquiry
+  - Filters: Search, Country, State, City, Source, Status, Follow Up, Active/Deleted
+  - Grid columns: Sr, Inquiry No, Date, Customer, Company, Phone,
+                  Location, Source, Inquiry Status, Follow Up, Action
+  - Next Follow Up column LIST mathi remove che (form ma field rehse)
+
+6.3 Grid mathi Status Update (inline)
+  - Inquiry Status dropdown → change → AJAX save (ajax_status.php)
+  - Follow Up Status dropdown → same
+  - Permission: inquiry EDIT joiye
+  - Toast message aave; fail thay to old value back
+
+6.4 Edit / Delete / Restore
+  - Edit pencil → edit.php
+  - Delete = soft delete (status=0), Restore possible (delete permission)
+  - Non-admin: only scoped records edit/delete
+
+
+7) MASTERS
+--------------------------------------------------------------------------------
+Path: masters/...
+
+Examples:
+  - Department / Designation
+  - Country / State / City / Area
+  - Inquiry Status
+  - Follow Up Status
+  - Source of Inquiry
+  - Product Category / Subcategory / Products
+
+Common master behaviour:
+  - List + Add/Edit + Soft delete/restore
+  - Required fields labels par red *
+  - Select2 dropdowns
+  - No static seed force (empty masters allowed; status defaults may auto-create)
+
+Inquiry Status / Follow Up Status:
+  - Color + is_default support
+  - Default status inquiry create time use thay
+
+
+8) DASHBOARD FLOW
+--------------------------------------------------------------------------------
+Page: dashboard.php
+
+Show thay:
+  A) Welcome + role + date
+  B) KPI cards (clickable shortcuts):
+       - Total Inquiries
+       - Today
+       - This Month
+       - Due Follow Up
+       - Open Pipeline
+       - Active Users (Admin)
+  C) Inquiry by Status (click → filtered inquiry list)
+  D) Shortcuts:
+       - Main Actions (Add Inquiry, All/Today/Due, Users, Roles, Settings…)
+       - Masters (badha masters direct open)
+  E) Recent Inquiries (latest 8) + open link
+
+Permission:
+  - Sales ne Inquiry related j + pote/team stats
+  - Admin ne badhu
+
+Dashboard → Inquiry list filters:
+  ?inquiry_status_id=ID
+  ?filter=today
+  ?filter=due_follow_up
+
+
+9) DATA TABLES / UI RULES
+--------------------------------------------------------------------------------
+  - Inquiry list attractive card design
+  - Horizontal scroll normal desktop par band (columns fit)
+  - Small screen par scroll fallback
+  - Row hover: light blue; Sr No par special border effect nathi
+  - Inquiry No badge, phone/location icons, pill status dropdowns
+
+
+10) DATABASE — KEY TABLES
+--------------------------------------------------------------------------------
+users
+  id, username, password, full_name, role, custom_role_id,
+  reports_to, status, …
+
+roles
+  id, name, code, status
+
+role_permissions
+  role_id, module_key, can_view, can_add, can_edit, can_delete
+
+inquiries
+  inquiry_no, inquiry_date, customer_name, company_name, phone, email,
+  country_id, state_id, city_id, area_id, address, requirement_details,
+  inquiry_status_id, follow_up_status_id, inquiry_source_id,
+  next_follow_up_date, created_by, assign_to, status
+
+inquiry_products
+  inquiry_id, product_id, qty, requirements, sort_order
+
+Masters tables:
+  inquiry_statuses, follow_up_statuses, inquiry_sources,
+  products, product_categories, product_subcategories,
+  countries, states, cities, areas, departments, designations
+
+
+11) END-TO-END BUSINESS FLOW (EXAMPLE)
+--------------------------------------------------------------------------------
+Scenario: New lead aave
+
+  1. Sales (BHAVIN) login
+  2. Dashboard → Add Inquiry
+  3. Customer + requirement + products fill
+  4. Inquiry Status = New, Follow Up = Pending
+  5. Assign To = BHAVIN (or teammate)
+  6. Save
+
+  7. List ma status dropdown thi "Contacted" / "In Progress" update
+  8. Manager JAY login → Bhavin ni inquiry pan dekhay (Reports To)
+  9. Admin login → badhi inquiries + users/roles/masters manage
+
+
+12) PERMISSION MATRIX QUICK VIEW
+--------------------------------------------------------------------------------
+                  | Admin | Sales Person (default)
+------------------+-------+------------------------
+Dashboard         | Yes   | Yes (own/team stats)
+Inquiry View      | Yes   | Yes (own/team)
+Inquiry Add       | Yes   | Yes
+Inquiry Edit      | Yes   | Yes (own/team)
+Inquiry Delete    | Yes   | No
+Masters           | Yes   | No
+Users / Roles     | Yes   | No
+Company / DB Sync | Yes   | No
+
+
+13) IMPORTANT FILES (DEVELOPER MAP)
+--------------------------------------------------------------------------------
+config/app.php, config/database.php
+includes/auth.php
+includes/permission_helper.php     → roles, users, reports_to, canAccess
+includes/permission_modules.php
+includes/inquiry_helper.php        → inquiry CRUD + scope + list JSON
+includes/master_helper.php
+includes/masters_config.php
+includes/dbsync.php                → schema sync
+includes/sidebar.php
+dashboard.php
+inquiry/* , users/* , roles/* , masters/*
+
+
+14) DO / DON'T
+--------------------------------------------------------------------------------
+DO:
+  - Nava sales user par Reports To set karo (manager)
+  - Custom Role permission matrix check karo
+  - Soft delete use karo; restore filter mathi kari shako
+  - Status change list mathi karo (fast follow-up)
+
+DON'T:
+  - Sales user ne admin pages force open (permission deny)
+  - Reports To ma cycle banavo (self / own team as manager) — system block kare
+  - Password blank new user create
+
+
+15) QUICK CHECKLIST — "SYSTEM WORKING?"
+--------------------------------------------------------------------------------
+[ ] Admin login → Dashboard KPIs + all shortcuts
+[ ] Users ma JAY under RAJ/BHAVIN/HARSH (Reports To column)
+[ ] JAY login → 4 team inquiries dekhay
+[ ] BHAVIN login → only pote ni inquiry
+[ ] Inquiry Add → save → list ma aave
+[ ] List mathi Inquiry Status / Follow Up change → toast success
+[ ] Dashboard shortcut → Add Inquiry / Masters / Users open
+[ ] Status card click → filtered inquiry list
+
+
+================================================================================
+  Document : SOP.txt
+  Keep updated jyre major flow / permission / hierarchy change thay.
+================================================================================

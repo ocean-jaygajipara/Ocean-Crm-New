@@ -34,6 +34,7 @@ function getCompanySettings()
         'company_logo'    => $defaultLogo, // legacy
         'letterhead'         => '',
         'inquiry_no_prefix'  => 'INQ',
+        'inquiry_no_mode'    => 'auto',
         'header_details'     => '',
         'footer_details'     => '',
     ];
@@ -46,7 +47,7 @@ function getCompanySettings()
     ensureCompanySettingsSchema($conn);
 
     $result = $conn->query(
-        "SELECT company_name, company_logo, login_logo, dashboard_logo, letterhead, inquiry_no_prefix, header_details, footer_details
+        "SELECT company_name, company_logo, login_logo, dashboard_logo, letterhead, inquiry_no_prefix, inquiry_no_mode, header_details, footer_details
          FROM company_settings WHERE id = 1 LIMIT 1"
     );
 
@@ -71,6 +72,8 @@ function getCompanySettings()
         $prefix = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
         $prefix = preg_replace('/[^A-Z0-9_-]/', '', $prefix);
         $settings['inquiry_no_prefix'] = $prefix !== '' ? $prefix : 'INQ';
+        $mode = strtolower(trim((string) ($row['inquiry_no_mode'] ?? 'auto')));
+        $settings['inquiry_no_mode'] = in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
         $settings['header_details'] = trim((string) ($row['header_details'] ?? ''));
         $settings['footer_details'] = trim((string) ($row['footer_details'] ?? ''));
     }
@@ -131,6 +134,21 @@ function getInquiryNoPrefix()
     $prefix = strtoupper(trim((string) ($settings['inquiry_no_prefix'] ?? 'INQ')));
     $prefix = preg_replace('/[^A-Z0-9_-]/', '', $prefix);
     return $prefix !== '' ? $prefix : 'INQ';
+}
+
+/**
+ * Inquiry number mode: auto | manual
+ */
+function getInquiryNoMode()
+{
+    $settings = getCompanySettings();
+    $mode = strtolower(trim((string) ($settings['inquiry_no_mode'] ?? 'auto')));
+    return in_array($mode, ['auto', 'manual'], true) ? $mode : 'auto';
+}
+
+function isInquiryNoAuto()
+{
+    return getInquiryNoMode() === 'auto';
 }
 
 /**

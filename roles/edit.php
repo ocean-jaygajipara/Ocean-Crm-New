@@ -93,7 +93,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-group">
                     <label for="roleStatus">Status</label>
-                    <select name="status" id="roleStatus" class="form-control">
+                    <select name="status" id="roleStatus" class="form-control js-select2">
                         <option value="1" <?php echo $statusVal === 1 ? 'selected' : ''; ?>>Active</option>
                         <option value="0" <?php echo $statusVal === 0 ? 'selected' : ''; ?>>Inactive</option>
                     </select>

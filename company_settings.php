@@ -1,7 +1,7 @@
 <?php
 /**
  * Admin - Company Logo Setup
- * Login Logo + Dashboard Logo + Document Header / Footer details
+ * Login Logo + Dashboard Logo + Letterhead + Document Header / Footer details
  */
 
 require_once __DIR__ . '/config/app.php';
@@ -20,21 +20,27 @@ $conn = getDBConnection();
 ensureCompanySettingsSchema($conn);
 
 $current = [
-    'company_name'    => 'Endoc Biotech Pvt Ltd',
-    'login_logo'      => null,
-    'dashboard_logo'  => null,
-    'header_details'  => '',
-    'footer_details'  => '',
+    'company_name'       => 'Ocean CRM',
+    'login_logo'         => null,
+    'dashboard_logo'     => null,
+    'letterhead'         => null,
+    'inquiry_no_prefix'  => 'INQ',
+    'header_details'     => '',
+    'footer_details'     => '',
 ];
 
 $res = $conn->query(
-    "SELECT company_name, login_logo, dashboard_logo, company_logo, header_details, footer_details
+    "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, header_details, footer_details
      FROM company_settings WHERE id = 1 LIMIT 1"
 );
 if ($res && $row = $res->fetch_assoc()) {
     $current['company_name']   = $row['company_name'];
     $current['login_logo']     = !empty($row['login_logo']) ? $row['login_logo'] : $row['company_logo'];
     $current['dashboard_logo'] = !empty($row['dashboard_logo']) ? $row['dashboard_logo'] : $row['company_logo'];
+    $current['letterhead']     = !empty($row['letterhead']) ? $row['letterhead'] : null;
+    $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
+    $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
+    $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
     $current['header_details'] = (string) ($row['header_details'] ?? '');
     $current['footer_details'] = (string) ($row['footer_details'] ?? '');
 }
@@ -43,8 +49,8 @@ $message = '';
 $messageType = '';
 
 /**
- * Handle one logo upload field
- * $protectPath = other logo path that must not be deleted if shared
+ * Handle one image upload field (logo / letterhead)
+ * $protectPath = other path that must not be deleted if shared
  */
 function handleLogoUpload($fileKey, $currentPath, $prefix, &$errorMsg, $protectPath = null)
 {
@@ -55,7 +61,7 @@ function handleLogoUpload($fileKey, $currentPath, $prefix, &$errorMsg, $protectP
     $file = $_FILES[$fileKey];
 
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        $errorMsg = 'Logo upload failed. Please try again.';
+        $errorMsg = 'Upload failed. Please try again.';
         return $currentPath;
     }
 
@@ -69,7 +75,7 @@ function handleLogoUpload($fileKey, $currentPath, $prefix, &$errorMsg, $protectP
     }
 
     if ($file['size'] > $maxSize) {
-        $errorMsg = 'Logo size must be under 2 MB.';
+        $errorMsg = 'File size must be under 2 MB.';
         return $currentPath;
     }
 
@@ -82,11 +88,11 @@ function handleLogoUpload($fileKey, $currentPath, $prefix, &$errorMsg, $protectP
     $dest = $uploadDir . '/' . $newName;
 
     if (!move_uploaded_file($file['tmp_name'], $dest)) {
-        $errorMsg = 'Could not save uploaded logo.';
+        $errorMsg = 'Could not save uploaded file.';
         return $currentPath;
     }
 
-    // Delete old file only if not still used by the other logo
+    // Delete old file only if not still used by another field
     if (
         !empty($currentPath)
         && strpos($currentPath, 'assets/uploads/logo/') === 0
@@ -113,21 +119,30 @@ function removeUploadedLogo($path)
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $companyName = trim($_POST['company_name'] ?? '');
+    $inquiryPrefix = strtoupper(trim((string) ($_POST['inquiry_no_prefix'] ?? 'INQ')));
+    $inquiryPrefix = preg_replace('/[^A-Z0-9_-]/', '', $inquiryPrefix);
+    if ($inquiryPrefix === '') {
+        $inquiryPrefix = 'INQ';
+    }
     $headerDetails = trim($_POST['header_details'] ?? '');
     $footerDetails = trim($_POST['footer_details'] ?? '');
     $removeLogin = isset($_POST['remove_login_logo']);
     $removeDash  = isset($_POST['remove_dashboard_logo']);
+    $removeLetterhead = isset($_POST['remove_letterhead']);
 
     if ($companyName === '') {
         $message = 'Company name is required.';
         $messageType = 'error';
+        $current['inquiry_no_prefix'] = $inquiryPrefix;
         $current['header_details'] = $headerDetails;
         $current['footer_details'] = $footerDetails;
     } else {
         $loginLogo = $current['login_logo'];
         $dashLogo  = $current['dashboard_logo'];
+        $letterhead = $current['letterhead'];
         $oldLogin  = $loginLogo;
         $oldDash   = $dashLogo;
+        $oldLetterhead = $letterhead;
         $uploadError = '';
 
         if ($removeLogin) {
@@ -136,23 +151,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($removeDash) {
             $dashLogo = null;
         }
+        if ($removeLetterhead) {
+            $letterhead = null;
+        }
 
         $loginLogo = handleLogoUpload('login_logo', $loginLogo, 'login_logo', $uploadError, $dashLogo ?: $oldDash);
         if ($uploadError === '') {
             $dashLogo = handleLogoUpload('dashboard_logo', $dashLogo, 'dashboard_logo', $uploadError, $loginLogo ?: $oldLogin);
         }
+        if ($uploadError === '') {
+            $letterhead = handleLogoUpload('letterhead', $letterhead, 'letterhead', $uploadError, null);
+        }
 
         if ($uploadError !== '') {
             $message = $uploadError;
             $messageType = 'error';
+            $current['inquiry_no_prefix'] = $inquiryPrefix;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         } else {
-            foreach ([$oldLogin, $oldDash] as $oldPath) {
+            foreach ([$oldLogin, $oldDash, $oldLetterhead] as $oldPath) {
                 if (
                     !empty($oldPath)
                     && $oldPath !== $loginLogo
                     && $oldPath !== $dashLogo
+                    && $oldPath !== $letterhead
                     && strpos($oldPath, 'assets/uploads/logo/') === 0
                 ) {
                     removeUploadedLogo($oldPath);
@@ -165,23 +188,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      login_logo = ?,
                      dashboard_logo = ?,
                      company_logo = ?,
+                     letterhead = ?,
+                     inquiry_no_prefix = ?,
                      header_details = ?,
                      footer_details = ?
                  WHERE id = 1"
             );
             $legacy = $dashLogo;
             $stmt->bind_param(
-                'ssssss',
+                'ssssssss',
                 $companyName,
                 $loginLogo,
                 $dashLogo,
                 $legacy,
+                $letterhead,
+                $inquiryPrefix,
                 $headerDetails,
                 $footerDetails
             );
             $ok = $stmt->execute();
             $stmt->close();
-            $conn->close();
 
             if ($ok) {
                 header('Location: company_settings.php?saved=1');
@@ -191,6 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Failed to save settings.';
             $messageType = 'error';
             $conn = getDBConnection();
+            $current['inquiry_no_prefix'] = $inquiryPrefix;
             $current['header_details'] = $headerDetails;
             $current['footer_details'] = $footerDetails;
         }
@@ -201,19 +228,22 @@ if (isset($_GET['saved']) && $_GET['saved'] == '1') {
     $message = 'Company settings saved successfully.';
     $messageType = 'success';
     $res = $conn->query(
-        "SELECT company_name, login_logo, dashboard_logo, company_logo, header_details, footer_details
+        "SELECT company_name, login_logo, dashboard_logo, company_logo, letterhead, inquiry_no_prefix, header_details, footer_details
          FROM company_settings WHERE id = 1 LIMIT 1"
     );
     if ($res && $row = $res->fetch_assoc()) {
         $current['company_name']   = $row['company_name'];
         $current['login_logo']     = !empty($row['login_logo']) ? $row['login_logo'] : $row['company_logo'];
         $current['dashboard_logo'] = !empty($row['dashboard_logo']) ? $row['dashboard_logo'] : $row['company_logo'];
+        $current['letterhead']     = !empty($row['letterhead']) ? $row['letterhead'] : null;
+        $pfx = strtoupper(trim((string) ($row['inquiry_no_prefix'] ?? 'INQ')));
+        $pfx = preg_replace('/[^A-Z0-9_-]/', '', $pfx);
+        $current['inquiry_no_prefix'] = $pfx !== '' ? $pfx : 'INQ';
         $current['header_details'] = (string) ($row['header_details'] ?? '');
         $current['footer_details'] = (string) ($row['footer_details'] ?? '');
     }
 }
 
-$conn->close();
 
 $pageTitle = 'Company Settings';
 
@@ -223,11 +253,13 @@ $sidebarActive = 'settings';
 
 require_once __DIR__ . '/includes/header.php';
 
-$defaultLogo = 'assets/images/endoc-logo.png';
+$defaultLogo = 'assets/images/ocean-crm-logo.png';
 $previewLogin = (!empty($current['login_logo']) && file_exists(__DIR__ . '/' . $current['login_logo']))
     ? $current['login_logo'] : $defaultLogo;
 $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' . $current['dashboard_logo']))
     ? $current['dashboard_logo'] : $defaultLogo;
+$hasLetterhead = !empty($current['letterhead']) && file_exists(__DIR__ . '/' . $current['letterhead']);
+$previewLetterhead = $hasLetterhead ? $current['letterhead'] : '';
 ?>
 
 <main class="dashboard-main">
@@ -243,7 +275,7 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 <i class="fa-solid fa-image"></i>
                 <div>
                     <h2>Company Logo Setup</h2>
-                    <p>Login / Dashboard logos + document header &amp; footer for all PDF prints.</p>
+                    <p>Login / Dashboard logos, letterhead + document header &amp; footer for all PDF prints.</p>
                 </div>
             </div>
 
@@ -258,7 +290,19 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 <div class="form-group">
                     <label for="company_name">Company Name</label>
                     <input type="text" id="company_name" name="company_name" class="form-control"
-                           value="<?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?>" required>
+                           value="<?php echo htmlspecialchars($current['company_name'] ?? 'Ocean CRM'); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="inquiry_no_prefix">Inquiry No Prefix</label>
+                    <input type="text" id="inquiry_no_prefix" name="inquiry_no_prefix" class="form-control"
+                           maxlength="20" style="max-width:220px;text-transform:uppercase;"
+                           value="<?php echo htmlspecialchars($current['inquiry_no_prefix'] ?? 'INQ'); ?>"
+                           placeholder="INQ">
+                    <small class="form-help">
+                        New inquiry numbers: <strong><?php echo htmlspecialchars(($current['inquiry_no_prefix'] ?? 'INQ') . '-' . date('Y') . '-0001'); ?></strong>
+                        (letters, numbers, _ or - only)
+                    </small>
                 </div>
 
                 <div class="logo-split-grid">
@@ -321,6 +365,41 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                     </div>
                 </div>
 
+                <!-- LETTERHEAD -->
+                <div class="logo-split-box" style="margin-top:16px;">
+                    <div class="logo-split-title">
+                        <i class="fa-solid fa-file-image"></i>
+                        <div>
+                            <strong>Letterhead</strong>
+                            <span>Used on letters / PDF print documents</span>
+                        </div>
+                    </div>
+
+                    <div class="logo-mini-preview logo-mini-preview--letterhead">
+                        <?php if ($hasLetterhead): ?>
+                            <img src="<?php echo htmlspecialchars($previewLetterhead); ?>?v=<?php echo time(); ?>" alt="Letterhead">
+                        <?php else: ?>
+                            <div class="doc-preview-text muted" style="padding:18px;text-align:center;">No letterhead uploaded</div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="letterhead">Upload Letterhead</label>
+                        <input type="file" id="letterhead" name="letterhead" class="form-control"
+                               accept=".jpg,.jpeg,.png,.gif,.webp,.svg,image/*">
+                        <small class="form-help">JPG, PNG, GIF, WEBP, SVG — Max 2 MB</small>
+                    </div>
+
+                    <?php if ($hasLetterhead): ?>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" name="remove_letterhead" value="1">
+                            Remove letterhead
+                        </label>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
                 <div class="doc-brand-block">
                     <div class="logo-split-title" style="margin-bottom:14px;">
                         <i class="fa-solid fa-file-lines"></i>
@@ -374,12 +453,22 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 </div>
             </div>
 
-            <p class="preview-name"><?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?></p>
+            <p class="preview-label" style="margin-top:14px;">Letterhead</p>
+            <div class="logo-preview-box logo-preview-box--letterhead">
+                <?php if ($hasLetterhead): ?>
+                    <img src="<?php echo htmlspecialchars($previewLetterhead); ?>?v=<?php echo time(); ?>"
+                         alt="Letterhead" class="logo-preview-img">
+                <?php else: ?>
+                    <div class="doc-preview-text muted" style="padding:20px;text-align:center;">Not uploaded</div>
+                <?php endif; ?>
+            </div>
+
+            <p class="preview-name"><?php echo htmlspecialchars($current['company_name'] ?? 'Ocean CRM'); ?></p>
 
             <div class="doc-preview-sample">
                 <p class="preview-label">Document header</p>
                 <div class="doc-preview-box">
-                    <strong><?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?></strong>
+                    <strong><?php echo htmlspecialchars($current['company_name'] ?? 'Ocean CRM'); ?></strong>
                     <?php if (trim((string) ($current['header_details'] ?? '')) !== ''): ?>
                         <div class="doc-preview-text"><?php echo nl2br(htmlspecialchars($current['header_details'])); ?></div>
                     <?php else: ?>
@@ -396,7 +485,7 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 </div>
             </div>
 
-            <p class="form-help">Logo watermark + this header/footer apply on PDF print pages.</p>
+            <p class="form-help">Logo watermark + letterhead + this header/footer apply on PDF print pages.</p>
         </div>
     </div>
 </main>

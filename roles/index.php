@@ -45,17 +45,8 @@ if (isset($_GET['msg'])) {
             <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
         </a>
         <div class="toolbar-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a href="<?php echo app_url('roles/department_heads.php'); ?>" class="btn-secondary">
-                <i class="fa-solid fa-user-tie"></i> Department Heads
-            </a>
-            <a href="<?php echo app_url('roles/bulk_employee_logins.php'); ?>" class="btn-secondary">
-                <i class="fa-solid fa-users-gear"></i> Employee Logins (ID / Password)
-            </a>
-            <a href="<?php echo app_url('roles/assign.php'); ?>" class="btn-secondary">
-                <i class="fa-solid fa-user-check"></i> Assign Role &amp; Login
-            </a>
             <a href="<?php echo app_url('users/index.php'); ?>" class="btn-secondary">
-                <i class="fa-solid fa-user-gear"></i> Staff Users
+                <i class="fa-solid fa-user-gear"></i> Users
             </a>
             <a href="<?php echo app_url('roles/edit.php'); ?>" class="btn-primary">
                 <i class="fa-solid fa-plus"></i> Add Role
@@ -71,7 +62,7 @@ if (isset($_GET['msg'])) {
                 </div>
                 <div>
                     <h1>Roles &amp; Access</h1>
-                    <p>Custom roles · Department Heads · Leave: Payroll Head approve · Office Staff self-apply</p>
+                    <p>Custom roles and permission matrix for Ocean CRM</p>
                 </div>
             </div>
         </div>
@@ -118,10 +109,6 @@ if (isset($_GET['msg'])) {
                                 <a href="<?php echo app_url('roles/permissions.php?role_id=' . (int) $r['id']); ?>"
                                    class="btn-sm btn-secondary" title="Set permissions">
                                     <i class="fa-solid fa-key"></i> Permissions
-                                </a>
-                                <a href="<?php echo app_url('roles/assign.php?role_id=' . (int) $r['id']); ?>"
-                                   class="btn-sm btn-secondary" title="Assign to employee">
-                                    <i class="fa-solid fa-user-check"></i> Assign
                                 </a>
                                 <a href="<?php echo app_url('roles/edit.php?id=' . (int) $r['id']); ?>"
                                    class="btn-sm btn-secondary" title="Edit">

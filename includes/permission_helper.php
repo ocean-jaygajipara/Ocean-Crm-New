@@ -8,64 +8,14 @@ require_once __DIR__ . '/text_case.php';
 
 function ensureRoleTables($conn = null)
 {
-    $closeAfter = false;
     if ($conn === null) {
         $conn = getDBConnection();
-        $closeAfter = true;
     }
-
-    $conn->query(
-        "CREATE TABLE IF NOT EXISTS roles (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            code VARCHAR(50) DEFAULT NULL,
-            description TEXT DEFAULT NULL,
-            status TINYINT(1) NOT NULL DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_roles_name (name),
-            INDEX idx_roles_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
-
-    $conn->query(
-        "CREATE TABLE IF NOT EXISTS role_permissions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            role_id INT NOT NULL,
-            module_key VARCHAR(50) NOT NULL,
-            department_id INT NOT NULL DEFAULT 0 COMMENT '0 = All Departments',
-            can_view TINYINT(1) NOT NULL DEFAULT 0,
-            can_add TINYINT(1) NOT NULL DEFAULT 0,
-            can_edit TINYINT(1) NOT NULL DEFAULT 0,
-            can_delete TINYINT(1) NOT NULL DEFAULT 0,
-            UNIQUE KEY uq_role_mod_dept (role_id, module_key, department_id),
-            INDEX idx_rp_role (role_id),
-            INDEX idx_rp_module (module_key),
-            INDEX idx_rp_dept (department_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
-
-    $col = $conn->query("SHOW COLUMNS FROM users LIKE 'custom_role_id'");
-    if ($col && $col->num_rows === 0) {
-        $conn->query(
-            "ALTER TABLE users
-             ADD COLUMN custom_role_id INT NULL DEFAULT NULL AFTER department_id,
-             ADD INDEX idx_users_custom_role (custom_role_id)"
-        );
+    if (!function_exists('syncDatabase')) {
+        require_once __DIR__ . '/dbsync.php';
     }
-
-    $colEmp = $conn->query("SHOW COLUMNS FROM users LIKE 'employee_id'");
-    if ($colEmp && $colEmp->num_rows === 0) {
-        $conn->query(
-            "ALTER TABLE users
-             ADD COLUMN employee_id INT NULL DEFAULT NULL AFTER custom_role_id,
-             ADD INDEX idx_users_employee (employee_id)"
-        );
-    }
-
-    if ($closeAfter) {
-        $conn->close();
-    }
+    // Schema managed in includes/dbsync.php
+    syncDatabase($conn, false);
 }
 
 /* ── Roles CRUD helpers ── */
@@ -88,7 +38,6 @@ function fetchRoles($activeOnly = false)
             $rows[] = $row;
         }
     }
-    $conn->close();
     return $rows;
 }
 
@@ -105,7 +54,6 @@ function getRoleById($id)
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $conn->close();
     return $row ?: null;
 }
 
@@ -134,7 +82,6 @@ function saveRole(array $data, $id = 0)
     $chk->execute();
     if ($chk->get_result()->fetch_assoc()) {
         $chk->close();
-        $conn->close();
         return ['ok' => false, 'error' => 'Role name already exists.'];
     }
     $chk->close();
@@ -146,7 +93,6 @@ function saveRole(array $data, $id = 0)
         $stmt->bind_param('sssii', $name, $code, $description, $status, $id);
         $ok = $stmt->execute();
         $stmt->close();
-        $conn->close();
         if (!$ok) {
             return ['ok' => false, 'error' => 'Could not update role.'];
         }
@@ -160,7 +106,6 @@ function saveRole(array $data, $id = 0)
     $ok = $stmt->execute();
     $newId = (int) $stmt->insert_id;
     $stmt->close();
-    $conn->close();
     if (!$ok) {
         return ['ok' => false, 'error' => 'Could not create role.'];
     }
@@ -182,7 +127,6 @@ function deleteRole($id)
     $c = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
     $stmt->close();
     if ($c > 0) {
-        $conn->close();
         return ['ok' => false, 'error' => 'Role is assigned to ' . $c . ' user(s). Reassign first.'];
     }
 
@@ -195,7 +139,6 @@ function deleteRole($id)
     $stmt->bind_param('i', $id);
     $ok = $stmt->execute();
     $stmt->close();
-    $conn->close();
 
     return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not delete role.'];
 }
@@ -240,7 +183,6 @@ function getRolePermissionMatrix($roleId, $departmentId = 0)
         ];
     }
     $stmt->close();
-    $conn->close();
     return $matrix;
 }
 
@@ -292,7 +234,6 @@ function saveRolePermissionMatrix($roleId, $departmentId, array $perms)
         }
         $ins->close();
         $conn->commit();
-        $conn->close();
 
         // Refresh session cache if current user has this role
         if (!empty($_SESSION['custom_role_id']) && (int) $_SESSION['custom_role_id'] === $roleId) {
@@ -302,7 +243,6 @@ function saveRolePermissionMatrix($roleId, $departmentId, array $perms)
         return ['ok' => true];
     } catch (Throwable $e) {
         $conn->rollback();
-        $conn->close();
         return ['ok' => false, 'error' => $e->getMessage()];
     }
 }
@@ -357,7 +297,6 @@ function loadUserPermissionsIntoSession($roleId, $force = false)
         }
     }
     $stmt->close();
-    $conn->close();
     $_SESSION['permissions'] = $map;
 }
 
@@ -595,7 +534,6 @@ function fetchStaffUsers()
             $rows[] = $row;
         }
     }
-    $conn->close();
     return $rows;
 }
 
@@ -615,7 +553,6 @@ function getStaffUserById($id)
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $conn->close();
     return $row ?: null;
 }
 
@@ -659,7 +596,6 @@ function saveStaffUser(array $data, $id = 0)
     $chk->execute();
     if ($chk->get_result()->fetch_assoc()) {
         $chk->close();
-        $conn->close();
         return ['ok' => false, 'error' => 'Username already exists.'];
     }
     $chk->close();
@@ -705,7 +641,6 @@ function saveStaffUser(array $data, $id = 0)
         }
         $ok = $stmt->execute();
         $stmt->close();
-        $conn->close();
         if (!$ok) {
             return ['ok' => false, 'error' => 'Could not update user.'];
         }
@@ -729,7 +664,6 @@ function saveStaffUser(array $data, $id = 0)
     $ok = $stmt->execute();
     $newId = (int) $stmt->insert_id;
     $stmt->close();
-    $conn->close();
     if (!$ok) {
         return ['ok' => false, 'error' => 'Could not create user.'];
     }
@@ -758,10 +692,8 @@ function deleteStaffUser($id)
             $c = (int) ($res->fetch_assoc()['c'] ?? 0);
         }
         if ($c <= 1) {
-            $conn->close();
             return ['ok' => false, 'error' => 'Cannot delete the last active Admin.'];
         }
-        $conn->close();
     }
 
     $conn = getDBConnection();
@@ -769,7 +701,6 @@ function deleteStaffUser($id)
     $stmt->bind_param('i', $id);
     $ok = $stmt->execute();
     $stmt->close();
-    $conn->close();
     return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not delete user.'];
 }
 
@@ -806,7 +737,6 @@ function fetchEmployeesForRoleAssign($departmentId = 0)
             $rows[] = $row;
         }
     }
-    $conn->close();
     return $rows;
 }
 
@@ -836,7 +766,6 @@ function fetchEmployeePortalAssignments($roleId = 0)
             $rows[] = $row;
         }
     }
-    $conn->close();
     return $rows;
 }
 
@@ -859,7 +788,6 @@ function getEmployeePortalUserById($id)
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $conn->close();
     return $row ?: null;
 }
 
@@ -887,7 +815,6 @@ function getEmployeePortalLoginByEmployeeId($employeeId)
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $conn->close();
     return $row ?: null;
 }
 
@@ -927,7 +854,6 @@ function fetchAllEmployeePortalCredentials($departmentId = 0)
             $rows[] = $row;
         }
     }
-    $conn->close();
     return $rows;
 }
 
@@ -991,11 +917,9 @@ function assignEmployeePortalLogin(array $data)
         $own = $chkOwn->get_result()->fetch_assoc();
         $chkOwn->close();
         if (!$own) {
-            $conn->close();
             return ['ok' => false, 'error' => 'Employee login not found.'];
         }
         if ((int) ($own['employee_id'] ?? 0) !== $employeeId) {
-            $conn->close();
             return ['ok' => false, 'error' => 'Login does not match selected employee.'];
         }
     }
@@ -1017,7 +941,6 @@ function assignEmployeePortalLogin(array $data)
         } elseif ($uRole === 'employee' && $uEmpId === $employeeId) {
             $userId = $uRowId;
         } else {
-            $conn->close();
             return ['ok' => false, 'error' => 'Username already exists.'];
         }
     }
@@ -1032,7 +955,6 @@ function assignEmployeePortalLogin(array $data)
         $dupRow = $dup->get_result()->fetch_assoc();
         $dup->close();
         if ($dupRow) {
-            $conn->close();
             return ['ok' => false, 'error' => 'This employee already has a portal login.'];
         }
     }
@@ -1074,7 +996,6 @@ function assignEmployeePortalLogin(array $data)
         }
         $ok = $stmt->execute();
         $stmt->close();
-        $conn->close();
         if (!$ok) {
             return ['ok' => false, 'error' => 'Could not update employee login.'];
         }
@@ -1083,7 +1004,6 @@ function assignEmployeePortalLogin(array $data)
     }
 
     if ($password === '') {
-        $conn->close();
         return ['ok' => false, 'error' => 'Password is required for new login.'];
     }
 
@@ -1104,7 +1024,6 @@ function assignEmployeePortalLogin(array $data)
     $ok = $stmt->execute();
     $newId = (int) $stmt->insert_id;
     $stmt->close();
-    $conn->close();
     if (!$ok) {
         return ['ok' => false, 'error' => 'Could not create employee login.'];
     }
@@ -1170,6 +1089,5 @@ function revokeEmployeePortalLogin($userId)
     $stmt->bind_param('i', $userId);
     $ok = $stmt->execute();
     $stmt->close();
-    $conn->close();
     return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not revoke login.'];
 }

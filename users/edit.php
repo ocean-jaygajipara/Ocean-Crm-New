@@ -6,7 +6,6 @@
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/master_helper.php';
 require_once __DIR__ . '/../includes/permission_helper.php';
 
 requireAdmin();
@@ -20,7 +19,6 @@ if ($id > 0 && !$row) {
 }
 
 $roles = fetchRoles(true);
-$departments = getActiveMasterRows('departments', 'sort_order ASC, department_name ASC');
 
 $formError = '';
 $formData = [];
@@ -108,10 +106,10 @@ require_once __DIR__ . '/../includes/header.php';
                            autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                    <label for="loginRole">Login As <span class="req">*</span></label>
+                    <label for="loginRole">Role Type <span class="req">*</span></label>
                     <select name="role" id="loginRole" class="form-control">
-                        <option value="hr" <?php echo $loginRole === 'hr' ? 'selected' : ''; ?>>HR</option>
                         <option value="admin" <?php echo $loginRole === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                        <option value="employee" <?php echo $loginRole === 'employee' ? 'selected' : ''; ?>>User</option>
                     </select>
                 </div>
                 <div class="form-group" id="customRoleWrap">
@@ -124,19 +122,9 @@ require_once __DIR__ . '/../includes/header.php';
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <small class="text-muted">Required for HR to access modules. Admin always has full access.</small>
+                    <small class="text-muted">Admin always has full access. Custom role is optional for Users.</small>
                 </div>
-                <div class="form-group">
-                    <label for="homeDept">Home Department</label>
-                    <select name="department_id" id="homeDept" class="form-control">
-                        <option value="0">— None —</option>
-                        <?php foreach ($departments as $d): ?>
-                            <option value="<?php echo (int) $d['id']; ?>" <?php echo $deptId === (int) $d['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($d['department_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+                <input type="hidden" name="department_id" value="0">
                 <div class="form-group">
                     <label for="userStatus">Status</label>
                     <select name="status" id="userStatus" class="form-control">

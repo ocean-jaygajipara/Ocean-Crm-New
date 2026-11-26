@@ -1,66 +1,31 @@
 <?php
 /**
- * Modules available in Role & Responsibility matrix.
- * Company Settings + DB Sync stay Admin-only (not listed here).
+ * CRM permission modules (Role matrix).
+ * Company Settings stays Admin-only.
  */
 
 function getPermissionModules()
 {
     return [
-        'employees' => [
-            'key'   => 'employees',
-            'label' => 'Employees',
-            'icon'  => 'fa-users',
-        ],
-        'circulars' => [
-            'key'   => 'circulars',
-            'label' => 'Circulars',
-            'icon'  => 'fa-file-circle-plus',
-        ],
-        'policies' => [
-            'key'   => 'policies',
-            'label' => 'Policies',
-            'icon'  => 'fa-scroll',
-        ],
-        'attendance' => [
-            'key'   => 'attendance',
-            'label' => 'Attendance',
-            'icon'  => 'fa-calendar-check',
-        ],
-        'leave' => [
-            'key'   => 'leave',
-            'label' => 'Leave',
-            'icon'  => 'fa-plane-departure',
-        ],
-        'payroll' => [
-            'key'   => 'payroll',
-            'label' => 'Payroll / Salary',
-            'icon'  => 'fa-money-check-dollar',
+        'inquiry' => [
+            'key'   => 'inquiry',
+            'label' => 'Inquiry',
+            'icon'  => 'fa-clipboard-question',
         ],
         'masters' => [
             'key'   => 'masters',
             'label' => 'Masters',
             'icon'  => 'fa-database',
         ],
-        'contractor' => [
-            'key'   => 'contractor',
-            'label' => 'Contractor',
-            'icon'  => 'fa-helmet-safety',
+        'users' => [
+            'key'   => 'users',
+            'label' => 'Users',
+            'icon'  => 'fa-users-gear',
         ],
-        'recruitment' => [
-            'key'   => 'recruitment',
-            'label' => 'Recruitment',
-            'icon'  => 'fa-user-plus',
-        ],
-        'employee_voice' => [
-            'key'   => 'employee_voice',
-            'label' => 'Employee Voice',
-            'icon'  => 'fa-comments',
-        ],
-        'departments' => [
-            'key'   => 'departments',
-            'label' => 'Departments Workspace',
-            'icon'  => 'fa-building',
+        'roles' => [
+            'key'   => 'roles',
+            'label' => 'Roles & Access',
+            'icon'  => 'fa-user-shield',
         ],
     ];
 }

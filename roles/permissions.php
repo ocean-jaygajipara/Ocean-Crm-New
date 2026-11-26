@@ -6,14 +6,13 @@
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/master_helper.php';
 require_once __DIR__ . '/../includes/permission_helper.php';
 
 requireAdmin();
 ensureRoleTables();
 
 $roleId = (int) ($_GET['role_id'] ?? 0);
-$departmentId = (int) ($_GET['department_id'] ?? 0);
+$departmentId = 0;
 $roles = fetchRoles(true);
 $role = $roleId > 0 ? getRoleById($roleId) : null;
 
@@ -22,7 +21,6 @@ if ($roleId > 0 && !$role) {
     exit;
 }
 
-$departments = getActiveMasterRows('departments', 'sort_order ASC, department_name ASC');
 $modules = getPermissionModules();
 $actions = getPermissionActions();
 $matrix = $roleId > 0 ? getRolePermissionMatrix($roleId, $departmentId) : [];
@@ -66,7 +64,7 @@ if (isset($_GET['msg'])) {
                 </div>
                 <div>
                     <h1>Set Permissions</h1>
-                    <p>Choose role &amp; department, then tick View / Add / Edit / Delete per module</p>
+                    <p>Choose role, then tick View / Add / Edit / Delete per module</p>
                 </div>
             </div>
         </div>
@@ -84,18 +82,6 @@ if (isset($_GET['msg'])) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="permDeptId">Department Scope</label>
-                    <select name="department_id" id="permDeptId" class="form-control" onchange="this.form.submit()" <?php echo $roleId <= 0 ? 'disabled' : ''; ?>>
-                        <option value="0" <?php echo $departmentId === 0 ? 'selected' : ''; ?>>All Departments</option>
-                        <?php foreach ($departments as $d): ?>
-                            <option value="<?php echo (int) $d['id']; ?>" <?php echo $departmentId === (int) $d['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($d['department_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <small class="text-muted">Permissions saved for this scope only. Use “All Departments” for global access, or set per department.</small>
-                </div>
             </div>
         </form>
     </div>
@@ -109,21 +95,6 @@ if (isset($_GET['msg'])) {
             <div class="flex-between" style="margin-bottom:12px;flex-wrap:wrap;gap:8px;">
                 <div>
                     <strong><?php echo htmlspecialchars($role['name']); ?></strong>
-                    <span class="text-muted"> · </span>
-                    <span class="text-muted">
-                        <?php
-                        if ($departmentId === 0) {
-                            echo 'All Departments';
-                        } else {
-                            foreach ($departments as $d) {
-                                if ((int) $d['id'] === $departmentId) {
-                                    echo htmlspecialchars($d['department_name']);
-                                    break;
-                                }
-                            }
-                        }
-                        ?>
-                    </span>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button type="button" class="btn-secondary btn-sm" id="permSelectAll">Select All</button>

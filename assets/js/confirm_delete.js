@@ -100,6 +100,12 @@
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.btn-delete');
         if (!btn) return;
+
+        // Masters list handles its own AJAX delete
+        if (btn.getAttribute('data-ajax') === '1') {
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
 

@@ -95,7 +95,7 @@ if (!defined('APP_BASE')) {
     );
 
     if (!$isLocalHost) {
-        if ($base === '/endoc_new_hrms_27_10_26') {
+        if ($base === '/Ocean Crm New') {
             $base = '';
         }
         if (defined('APP_URL') && APP_URL !== '') {
